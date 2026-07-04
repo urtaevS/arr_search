@@ -6,4 +6,6 @@ services:
       - "3000:3000"
     env_file:
       - .env
+как    volumes:
+      - ./.env:/app/.env:ro
     restart: unless-stopped
