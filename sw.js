@@ -1,4 +1,4 @@
-const CACHE = "torrent-search-v3";
+const CACHE = "torrent-search-v4";
 
 const STATIC_ASSETS = [
   "/index.html",

@@ -16,11 +16,10 @@ class TorrentApp {
         this.settingsClose = document.getElementById("settingsClose");
         this.searchFab = document.getElementById("searchFab");
         this.searchPanel = document.querySelector(".search-panel");
-        this.trackerBtn = document.getElementById("trackerFilterBtn");
         this.trackerDropdown = document.getElementById("trackerDropdown");
 
         this.isSearching = false;
-        this.activeBackend = "jackett";
+        this.activeBackend = "prowlarr";
         this.trackerDropdownOpen = false;
         this.selectedTrackers = new Set();
         this.indexers = [];
@@ -29,6 +28,7 @@ class TorrentApp {
         this.sortBy = "date";
         this.sortOrder = "desc";
         this.hiddenTrackers = new Set();
+        this.loaderInterval = null;
 
     }
 
@@ -123,28 +123,25 @@ class TorrentApp {
         });
 
         // ==========================
-        // TRACKER DROPDOWN
+        // TRACKER DROPDOWN — открывается при фокусе на поиске
         // ==========================
 
-        this.trackerBtn.addEventListener("click", (e) => {
-
-            e.stopPropagation();
-
-            this.toggleTrackerDropdown();
-
+        this.input.addEventListener("focus", () => {
+            if (!this.trackerDropdownOpen) {
+                this.openTrackerDropdown();
+            }
         });
 
         document.addEventListener("click", (e) => {
-
             if (
                 this.trackerDropdownOpen &&
-                !this.trackerDropdown.contains(e.target) &&
-                e.target !== this.trackerBtn &&
-                !this.trackerBtn.contains(e.target)
+                !this.trackerDropdown?.contains(e.target) &&
+                !e.target.closest('.search-box') &&
+                e.target !== this.searchFab &&
+                !this.searchFab?.contains(e.target)
             ) {
                 this.closeTrackerDropdown();
             }
-
         });
 
         document.addEventListener("keydown", (e) => {
@@ -280,6 +277,8 @@ class TorrentApp {
         }
         finally {
 
+            this.stopLoader();
+
             this.isSearching = false;
 
             this.searchButton.disabled = false;
@@ -289,6 +288,8 @@ class TorrentApp {
     }
 
     render(data) {
+
+        this.stopLoader();
 
         this.resultsData = data;
 
@@ -568,37 +569,70 @@ class TorrentApp {
 
     showLoader() {
 
+        const phrases = [
+            "Ой, да иду я, иду... \u{1F6B6}\u200D\u{2642}\uFE0F",
+            "Ну началось... \u{1F644}",
+            "Листаю интернет-каталоги \u{1F971}",
+            "Гуглю на минималках. \u{1F422}",
+            "Погоди, чаёк налью... \u{2615}",
+            "Стянем по-быстрому и спать. \u{1F6CC}",
+            "А волшебное слово? \u{1F928}",
+            "Потрошим цифровые галеоны! \u{1F3F4}\u200D\u2620\uFE0F",
+            "Пробиваем по пиратским картам... \u{1F5FA}\uFE0F",
+            "Йо-хо-хо, ща найдём! \u{1F37B}",
+            "Трясём сундуки мертвеца... \u{1FA99}",
+            "Направляем подзорную трубу... \u{1F9ED}",
+            "Роем берег сокровищ \u{1F3DD}\uFE0F",
+            "Открываем портал в терабайты... \u{1F300}",
+            "Пронзаем ткань интернета \u{1F30C}",
+            "Сплавляем ядра процессора... \u{1F525}",
+            "Консультируемся с высшим разумом \u{1F47D}",
+            "Инициализируем магию вне Хогвартса \u{1FA84}",
+            "Сканируем ноосферу... \u{1F9E0}",
+            "Шерстим закрома интернета... \u{1F575}\uFE0F\u200D\u2642\uFE0F",
+            "Проводим обыск на серверах \u{1F4C2}",
+            "Снимаем отпечатки с сидов... \u{1F5DD}\uFE0F",
+            "Поднимаем старые архивы \u{1F4DC}",
+            "Ищем лазейку в заборе... \u{1F92B}",
+            "Работаем под прикрытием \u{1F60E}",
+            "Копаем под провайдера... \u{1F50C}"
+        ];
+
+        let index = Math.floor(Math.random() * phrases.length);
+
         this.results.innerHTML = `
-
 <section class="empty">
-
 <div class="empty-icon pulse">
-
 <i data-lucide="loader-circle" class="loader-icon"></i>
-
 </div>
-
-<h2>
-
-Запускаю поиск
-
+<h2 id="loaderPhrase">
+${phrases[index]}
 </h2>
-
-<p style="color:var(--text-secondary);font-size:14px;">
-
-${this.escapeHtml(this.input.value)}
-
-</p>
-
 </section>
-
 `;
 
         this.createIcons();
 
+        this.loaderInterval = setInterval(() => {
+            index = (index + 1) % phrases.length;
+            const el = document.getElementById("loaderPhrase");
+            if (el) el.textContent = phrases[index];
+        }, 3000);
+
+    }
+
+    stopLoader() {
+
+        if (this.loaderInterval) {
+            clearInterval(this.loaderInterval);
+            this.loaderInterval = null;
+        }
+
     }
 
     showNoResults() {
+
+        this.stopLoader();
 
         document.querySelector(".header")?.classList.remove("has-results");
 
@@ -655,6 +689,8 @@ ${this.escapeHtml(this.input.value)}
     }
 
     showError(message = "") {
+
+        this.stopLoader();
 
         document.querySelector(".header")?.classList.remove("has-results");
 
@@ -745,6 +781,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     showEmptyStart() {
 
+        this.stopLoader();
+
         document.querySelector(".header")?.classList.remove("has-results");
 
         this.searchPanel.classList.remove("hidden-search");
@@ -807,9 +845,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.trackerDropdownOpen = true;
 
-        this.trackerBtn.innerHTML =
-            '<i data-lucide="list-filter-plus"></i>';
-
         this.populateTrackerDropdown();
 
         // Position dropdown above search box
@@ -831,9 +866,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
     closeTrackerDropdown() {
 
         this.trackerDropdownOpen = false;
-
-        this.trackerBtn.innerHTML =
-            '<i data-lucide="list-filter"></i>';
 
         this.trackerDropdown.classList.remove("open");
 
