@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+
+    <meta name="theme-color" content="#1a2332">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Torrent Search">
+
+    <link rel="manifest" href="/manifest.json">
+
+    <link rel="apple-touch-icon" href="/icons/icon-192x192.png">
+
+    <title>Torrent Search</title>
+
+    <link rel="stylesheet" href="styles.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+
+    <link rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossorigin>
+
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+          rel="stylesheet">
+
+</head>
+
+<body>
+
+<div class="background"></div>
+
+<div class="app">
+
+    <!-- ========================= -->
+    <!-- HEADER                    -->
+    <!-- ========================= -->
+
+    <header class="header">
+
+        <div class="header-left">
+
+            <div class="header-sorts">
+
+                <button class="header-sort" data-sort="date">
+
+                    <i data-lucide="calendar"></i>
+
+                    <i data-lucide="chevron-down" class="sort-dir"></i>
+
+                </button>
+
+                <button class="header-sort" data-sort="size">
+
+                    <i data-lucide="hard-drive"></i>
+
+                    <i data-lucide="chevron-down" class="sort-dir"></i>
+
+                </button>
+
+                <button class="header-sort" data-sort="tracker">
+
+                    <i data-lucide="server"></i>
+
+                    <i data-lucide="chevron-down" class="sort-dir"></i>
+
+                </button>
+
+                <span class="sort-sep"></span>
+
+                <button class="icon-btn clear-btn" id="clearBtn" title="Очистить результаты">
+
+                    <i data-lucide="x"></i>
+
+                </button>
+
+            </div>
+
+        </div>
+
+        <div class="header-count" id="resultCountRight">
+
+            <i data-lucide="funnel"></i>
+
+            <span class="count-number">0</span>
+
+        </div>
+
+    </header>
+
+    <!-- ========================= -->
+    <!-- RESULTS                   -->
+    <!-- ========================= -->
+
+    <main
+        id="results"
+        class="results">
+
+        <section class="empty">
+
+            <div class="empty-icon">
+
+                <i data-lucide="search"></i>
+
+            </div>
+
+            <h2>
+
+                Начните поиск
+
+            </h2>
+
+            <p>
+
+                Введите название фильма,
+                сериала,
+                игры,
+                программы
+                или книги.
+
+            </p>
+
+        </section>
+
+    </main>
+    <!-- ========================= -->
+    <!-- SETTINGS PANEL            -->
+    <!-- ========================= -->
+
+    <div id="settingsOverlay" class="settings-overlay">
+
+        <div id="settingsPanel" class="settings-panel">
+
+            <div class="settings-body">
+
+                <div class="settings-section">
+
+                    <div class="filter-header">
+                        <span class="filter-title" id="filterTitle">Фильтр</span>
+                        <button id="settingsClose" class="icon-btn">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+
+                    <div class="section-body">
+
+                        <div id="trackerFilter" class="tracker-filter"></div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- SEARCH                    -->
+    <!-- ========================= -->
+
+    <footer class="search-panel">
+
+        <div class="search-wrapper">
+
+            <div class="search-box">
+
+                <button
+                    id="trackerFilterBtn"
+                    class="search-box-icon-btn"
+                    aria-label="Выбор трекера">
+
+                    <i data-lucide="list-filter"></i>
+
+                </button>
+
+                <input
+                    id="searchInput"
+                    type="search"
+                    placeholder="Начни отсюда"
+                    autocomplete="off"
+                    spellcheck="false"
+                    name="q"
+                    inputmode="search"
+                    autocorrect="off"
+                    autocapitalize="off"
+                    enterkeyhint="search">
+
+                <button
+                    id="searchButton"
+                    class="search-btn-inner"
+                    aria-label="Поиск">
+
+                    <i data-lucide="arrow-right"></i>
+
+                </button>
+
+            </div>
+
+        </div>
+
+    </footer>
+
+    <!-- ========================= -->
+    <!-- SEARCH FAB               -->
+    <!-- ========================= -->
+
+    <button
+        id="searchFab"
+        class="search-fab"
+        aria-label="Новый поиск">
+
+        <i data-lucide="search"></i>
+
+    </button>
+
+    <div id="trackerDropdown" class="tracker-dropdown"></div>
+
+</div>
+
+<!-- Template for torrent card -->
+<template id="torrentCard">
+
+    <div class="card">
+
+        <!-- Header row: tracker left, seeders/leechers right -->
+        <div class="card-header">
+
+            <i data-lucide="" class="source-icon"></i>
+            <span class="tracker"></span>
+
+            <div class="card-peers">
+
+                <span class="peers up"><i data-lucide="arrow-up"></i><span class="seeders"></span></span>
+
+                <span class="peers-sep">/</span>
+
+                <span class="peers down"><i data-lucide="arrow-down"></i><span class="leechers"></span></span>
+
+            </div>
+
+        </div>
+
+        <!-- Title row -->
+        <div class="card-top">
+
+            <div class="card-top-left">
+
+                <span class="tracker-color"></span>
+
+                <div class="card-text">
+
+                    <div class="torrent-title"></div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <!-- Bottom: action icons left, size+date right -->
+        <div class="card-bottom">
+
+            <div class="card-actions">
+
+                <button class="action-icon magnet" title="Magnet-ссылка"><i data-lucide="magnet"></i></button>
+
+                <button class="action-icon torrent" title="Скачать .torrent"><i data-lucide="download"></i></button>
+
+                <button class="action-icon details" title="Страница раздачи"><i data-lucide="globe"></i></button>
+
+            </div>
+
+            <div class="card-meta-right">
+
+                <div class="meta-size"><i data-lucide="hard-drive"></i><span class="size"></span></div>
+
+                <div class="meta-date"><i data-lucide="calendar"></i><span class="date"></span></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</template>
+
+<!-- Lucide Icons -->
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    lucide.createIcons();
+});
+</script>
+
+<!-- App -->
+<script src="app.js"></script>
+
+</body>
+</html>
