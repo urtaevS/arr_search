@@ -6,6 +6,7 @@ import http from "http";
 import https from "https";
 import { fileURLToPath } from "url";
 import os from "os";
+import iconv from "iconv-lite";
 
 dotenv.config();
 
@@ -139,9 +140,7 @@ app.get("/api/indexers", async (req, res) => {
             const parsed = new URL(`${PROWLARR_URL}/api/v1/indexer`);
             parsed.searchParams.set("apikey", PROWLARR_API_KEY);
 
-            const response = await axios.get(parsed.toString(), { timeout: 10000 });
-
-            const data = response.data || [];
+            const data = await fetchDecodedJSON(parsed.toString(), { timeout: 10000 });
 
             const indexers = Array.isArray(data)
                 ? data
@@ -257,6 +256,77 @@ app.get("/api/indexers", async (req, res) => {
 
 });
 
+/**
+ * Fetch JSON from an API endpoint, automatically detecting and fixing
+ * character encoding issues (e.g., Windows-1251 decoded as UTF-8).
+ * Uses ArrayBuffer response type to get raw bytes, then decodes with
+ * fallback chain: UTF-8 → Windows-1251 → KOI8-R.
+ */
+async function fetchDecodedJSON(url, options = {}) {
+
+    const response = await axios.get(url, {
+        ...options,
+        responseType: "arraybuffer"
+    });
+
+    const buffer = Buffer.from(response.data);
+
+    // 1. Try UTF-8 first
+    let text = buffer.toString("utf-8");
+
+    // 2. If replacement character detected, try Windows-1251
+    if (text.includes("\uFFFD")) {
+
+        console.log("[encoding] UTF-8 decoding produced replacement chars, trying Windows-1251...");
+
+        try {
+
+            const win1251text = iconv.decode(buffer, "win1251");
+
+            // Use Windows-1251 if it produces no replacement chars, or fewer of them
+            if (!win1251text.includes("\uFFFD") ||
+                win1251text.indexOf("\uFFFD") < text.indexOf("\uFFFD")) {
+                console.log("[encoding] Using Windows-1251 decoding");
+                text = win1251text;
+            }
+
+        } catch (decodeErr) {
+            console.log("[encoding] Windows-1251 decoding failed:", decodeErr.message);
+        }
+
+    }
+
+    // 3. If still has replacement chars, try KOI8-R
+    if (text.includes("\uFFFD")) {
+
+        console.log("[encoding] Still has replacement chars, trying KOI8-R...");
+
+        try {
+
+            const koi8text = iconv.decode(buffer, "koi8-r");
+
+            if (!koi8text.includes("\uFFFD") ||
+                koi8text.indexOf("\uFFFD") < text.indexOf("\uFFFD")) {
+                console.log("[encoding] Using KOI8-R decoding");
+                text = koi8text;
+            }
+
+        } catch (decodeErr) {
+            console.log("[encoding] KOI8-R decoding failed:", decodeErr.message);
+        }
+
+    }
+
+    // Parse as JSON
+    try {
+        return JSON.parse(text);
+    } catch (parseErr) {
+        console.error("[encoding] JSON parse failed after all decoding attempts:", parseErr.message);
+        throw parseErr;
+    }
+
+}
+
 function fetchWithCookie(url, apikey) {
 
     return new Promise((resolve) => {
@@ -285,14 +355,43 @@ function fetchWithCookie(url, apikey) {
                 return resolve(null);
             }
 
-            let body = "";
-            response.on("data", chunk => body += chunk);
+            const chunks = [];
+            response.on("data", chunk => chunks.push(chunk));
             response.on("end", () => {
+
+                const buffer = Buffer.concat(chunks);
+
+                // Try UTF-8 first
+                let text = buffer.toString("utf-8");
+
+                // If replacement character detected, try Windows-1251
+                if (text.includes("\uFFFD")) {
+                    try {
+                        const win1251text = iconv.decode(buffer, "win1251");
+                        if (!win1251text.includes("\uFFFD") ||
+                            win1251text.indexOf("\uFFFD") < text.indexOf("\uFFFD")) {
+                            text = win1251text;
+                        }
+                    } catch {}
+                }
+
+                // If still has replacement chars, try KOI8-R
+                if (text.includes("\uFFFD")) {
+                    try {
+                        const koi8text = iconv.decode(buffer, "koi8-r");
+                        if (!koi8text.includes("\uFFFD") ||
+                            koi8text.indexOf("\uFFFD") < text.indexOf("\uFFFD")) {
+                            text = koi8text;
+                        }
+                    } catch {}
+                }
+
                 try {
-                    resolve(JSON.parse(body));
+                    resolve(JSON.parse(text));
                 } catch {
                     resolve(null);
                 }
+
             });
 
         });
@@ -337,9 +436,7 @@ app.get("/api/search", async (req, res) => {
                 trackerList.forEach(id => searchUrl.searchParams.append("indexerIds", id));
             }
 
-            const response = await axios.get(searchUrl.toString(), { timeout: 60000 });
-
-            const rawData = response.data || [];
+            const rawData = await fetchDecodedJSON(searchUrl.toString(), { timeout: 60000 });
 
             const results = (Array.isArray(rawData) ? rawData : [])
                 .map(normalizeProwlarr)
@@ -377,30 +474,30 @@ app.get("/api/search", async (req, res) => {
 
         if (jackettTrackerList.length === 0) {
             // Поиск по всем индексаторам
-            const response = await axios.get(
+            const data = await fetchDecodedJSON(
                 `${JACKETT_URL}/api/v2.0/indexers/all/results`,
                 { params: { apikey: API_KEY, Query: query }, timeout: 30000 }
             );
-            allResults = response.data.Results || [];
+            allResults = data.Results || [];
 
         } else if (jackettTrackerList.length === 1) {
 
             console.log("[search] Searching SINGLE indexer: %s", jackettTrackerList[0]);
             // Поиск по одному индексатору
-            const response = await axios.get(
+            const data = await fetchDecodedJSON(
                 `${JACKETT_URL}/api/v2.0/indexers/${jackettTrackerList[0]}/results`,
                 { params: { apikey: API_KEY, Query: query }, timeout: 30000 }
             );
-            allResults = response.data.Results || [];
+            allResults = data.Results || [];
 
         } else {
 
             // Поиск по нескольким индексаторам — параллельные запросы
             const requests = jackettTrackerList.map(id =>
-                axios.get(
+                fetchDecodedJSON(
                     `${JACKETT_URL}/api/v2.0/indexers/${id}/results`,
                     { params: { apikey: API_KEY, Query: query }, timeout: 30000 }
-                ).then(r => r.data.Results || []).catch(() => [])
+                ).then(r => r?.Results || []).catch(() => [])
             );
             const nested = await Promise.all(requests);
             for (const arr of nested) {
