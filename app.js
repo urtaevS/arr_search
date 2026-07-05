@@ -215,6 +215,8 @@ class TorrentApp {
 
             this.input.focus();
 
+            this.openTrackerDropdown();
+
         });
 
     }
@@ -682,7 +684,27 @@ ${phrases[index]}
 
         if (window.lucide) {
 
-            lucide.createIcons();
+            // Remove data-lucide from already-converted SVGs
+
+            // so lucide.createIcons() won't re-process them and detach them from the DOM.
+
+            document.querySelectorAll('svg[data-lucide]').forEach(svg => {
+
+                svg.removeAttribute('data-lucide');
+
+            });
+
+            // Run lucide.createIcons() if there are unconverted
+
+            // <i> elements (non-SVG elements with data-lucide).
+
+            const unconverted = document.querySelectorAll('[data-lucide]:not(svg)');
+
+            if (unconverted.length > 0) {
+
+                lucide.createIcons();
+
+            }
 
         }
 
