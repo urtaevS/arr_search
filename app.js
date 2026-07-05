@@ -209,10 +209,6 @@ class TorrentApp {
 
         this.searchFab.addEventListener("click", () => {
 
-            this.searchPanel.classList.remove("hidden-search");
-
-            this.searchFab.classList.remove("visible");
-
             this.input.value = "";
 
             this.searchButton.classList.remove("visible");
@@ -221,6 +217,19 @@ class TorrentApp {
 
             this.openTrackerDropdown();
 
+        });
+
+        // ==========================
+        // SCROLLBAR AUTO-HIDE
+        // ==========================
+
+        let scrollTimeout;
+        this.results.addEventListener("scroll", () => {
+            this.results.classList.add("scrolling");
+            clearTimeout(scrollTimeout);
+            scrollTimeout = setTimeout(() => {
+                this.results.classList.remove("scrolling");
+            }, 300);
         });
 
     }
@@ -396,19 +405,7 @@ class TorrentApp {
             data.length > 0
         );
 
-        if (data.length > 0) {
-
-            this.searchPanel.classList.add("hidden-search");
-
-            this.searchFab.classList.add("visible");
-
-        } else {
-
-            this.searchPanel.classList.remove("hidden-search");
-
-            this.searchFab.classList.remove("visible");
-
-        }
+        // Search panel is always visible — no hidden-search toggle
 
         if (!data.length) {
 
@@ -664,10 +661,6 @@ ${phrases[index]}
 
         document.querySelector(".header")?.classList.remove("has-results");
 
-        this.searchPanel.classList.remove("hidden-search");
-
-        this.searchFab.classList.remove("visible");
-
         this.results.innerHTML = `
 
 <section class="empty">
@@ -834,10 +827,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         this.stopLoader();
 
         document.querySelector(".header")?.classList.remove("has-results");
-
-        this.searchPanel.classList.remove("hidden-search");
-
-        this.searchFab.classList.remove("visible");
 
         this.results.innerHTML = `
 

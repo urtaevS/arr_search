@@ -431,7 +431,7 @@ body{
 
         18px
 
-        150px;
+        calc(env(safe-area-inset-bottom) + 90px);
 
     width:100%;
 
@@ -448,6 +448,20 @@ body{
     background:rgba(255,255,255,.10);
 
     border-radius:999px;
+
+    transition:opacity .3s ease;
+
+}
+
+.results:not(.scrolling)::-webkit-scrollbar-thumb{
+
+    opacity:0;
+
+}
+
+.results.scrolling::-webkit-scrollbar-thumb{
+
+    opacity:1;
 
 }
 
@@ -1852,7 +1866,7 @@ body{
         padding:
             8px
             14px
-            150px;
+            calc(env(safe-area-inset-bottom) + 90px);
 
     }
 
@@ -2046,7 +2060,7 @@ body{
 /* Mobile adjustments for pagination */
 @media (max-width:768px){
     .pagination{
-        padding:12px 6px 100px;
+        padding:12px 6px;
     }
     .page-group{
         gap:3px;
