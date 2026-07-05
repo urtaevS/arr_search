@@ -431,7 +431,7 @@ body{
 
         18px
 
-        calc(env(safe-area-inset-bottom) + 90px);
+        calc(env(safe-area-inset-bottom) + 130px);
 
     width:100%;
 
@@ -1866,7 +1866,7 @@ body{
         padding:
             8px
             14px
-            calc(env(safe-area-inset-bottom) + 90px);
+            calc(env(safe-area-inset-bottom) + 130px);
 
     }
 
