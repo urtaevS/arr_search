@@ -29,6 +29,8 @@ class TorrentApp {
         this.sortOrder = "desc";
         this.hiddenTrackers = new Set();
         this.loaderInterval = null;
+        this.currentPage = 0;
+        this.pageSize = 10;
 
     }
 
@@ -178,6 +180,8 @@ class TorrentApp {
 
                 this.updateSortUI();
 
+                this.currentPage = 0;
+
                 this.applySortAndFilter();
 
             });
@@ -295,6 +299,8 @@ class TorrentApp {
 
         this.resultsData = data;
 
+        this.currentPage = 0;
+
         this.applySortAndFilter();
 
     }
@@ -366,6 +372,18 @@ class TorrentApp {
         });
 
         // ==========================
+        // PAGINATION
+        // ==========================
+
+        const totalPages = Math.max(1, Math.ceil(data.length / this.pageSize));
+
+        if (this.currentPage >= totalPages) this.currentPage = totalPages - 1;
+        if (this.currentPage < 0) this.currentPage = 0;
+
+        const start = this.currentPage * this.pageSize;
+        const pageData = data.slice(start, start + this.pageSize);
+
+        // ==========================
         // RENDER
         // ==========================
 
@@ -398,7 +416,7 @@ class TorrentApp {
 
         } else {
 
-            data.forEach(item => {
+            pageData.forEach(item => {
 
                 const node = this.createCard(item);
 
@@ -409,6 +427,12 @@ class TorrentApp {
             this.createIcons();
 
         }
+
+        // ==========================
+        // PAGINATION CONTROLS
+        // ==========================
+
+        this.renderPagination(data.length);
 
         // ==========================
         // UPDATE SETTINGS CONTENT
@@ -515,6 +539,7 @@ class TorrentApp {
         allLabel.addEventListener("click", (e) => {
             e.preventDefault();
             this.hiddenTrackers.clear();
+            this.currentPage = 0;
             this.applySortAndFilter();
             this.closeSettings();
         });
@@ -557,6 +582,7 @@ class TorrentApp {
                 e.preventDefault();
                 // Скрываем все трекеры, кроме выбранного
                 this.hiddenTrackers = new Set(trackers.filter(t => t !== tracker));
+                this.currentPage = 0;
                 this.applySortAndFilter();
                 this.closeSettings();
             });
@@ -793,6 +819,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.resultsData = [];
 
+        this.currentPage = 0;
+
         this.searchButton.classList.remove("visible");
 
         this.showEmptyStart();
@@ -986,6 +1014,9 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             this.createIcons();
 
+            // Keep focus on search input so mobile keyboard stays open
+            this.input.focus();
+
         });
 
         // Backend toggle
@@ -1024,10 +1055,92 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
                     this.createIcons();
 
+                    // Keep focus on search input so mobile keyboard stays open
+                    this.input.focus();
+
                 });
 
             });
 
+    }
+
+    renderPagination(totalResults) {
+
+        // Remove any existing pagination controls
+        const oldPagination = this.results.querySelector(".pagination");
+        if (oldPagination) oldPagination.remove();
+
+        const totalPages = Math.max(1, Math.ceil(totalResults / this.pageSize));
+
+        if (totalPages <= 1) return;
+
+        const pagination = document.createElement("div");
+        pagination.className = "pagination";
+
+        // First page (edge arrow)
+        const firstBtn = document.createElement("button");
+        firstBtn.className = "page-btn edge-btn";
+        firstBtn.innerHTML = "⏮";
+        firstBtn.title = "Первая страница";
+        firstBtn.disabled = this.currentPage === 0;
+        firstBtn.addEventListener("click", () => this.goToPage(0));
+
+        // Previous page
+        const prevBtn = document.createElement("button");
+        prevBtn.className = "page-btn prev-btn";
+        prevBtn.innerHTML = "←";
+        prevBtn.title = "Предыдущая страница";
+        prevBtn.disabled = this.currentPage === 0;
+        prevBtn.addEventListener("click", () => this.goToPage(this.currentPage - 1));
+
+        // Page info
+        const pageInfo = document.createElement("span");
+        pageInfo.className = "page-info";
+        pageInfo.textContent = `${this.currentPage + 1} / ${totalPages}`;
+
+        // Next page
+        const nextBtn = document.createElement("button");
+        nextBtn.className = "page-btn next-btn";
+        nextBtn.innerHTML = "→";
+        nextBtn.title = "Следующая страница";
+        nextBtn.disabled = this.currentPage >= totalPages - 1;
+        nextBtn.addEventListener("click", () => this.goToPage(this.currentPage + 1));
+
+        // Last page (edge arrow)
+        const lastBtn = document.createElement("button");
+        lastBtn.className = "page-btn edge-btn";
+        lastBtn.innerHTML = "⏭";
+        lastBtn.title = "Последняя страница";
+        lastBtn.disabled = this.currentPage >= totalPages - 1;
+        lastBtn.addEventListener("click", () => this.goToPage(totalPages - 1));
+
+        // Group edge arrows on left/right, navigation in center
+        const leftGroup = document.createElement("div");
+        leftGroup.className = "page-group page-group-left";
+        leftGroup.appendChild(firstBtn);
+
+        const centerGroup = document.createElement("div");
+        centerGroup.className = "page-group page-group-center";
+        centerGroup.appendChild(prevBtn);
+        centerGroup.appendChild(pageInfo);
+        centerGroup.appendChild(nextBtn);
+
+        const rightGroup = document.createElement("div");
+        rightGroup.className = "page-group page-group-right";
+        rightGroup.appendChild(lastBtn);
+
+        pagination.appendChild(leftGroup);
+        pagination.appendChild(centerGroup);
+        pagination.appendChild(rightGroup);
+
+        this.results.appendChild(pagination);
+    }
+
+    goToPage(page) {
+        this.currentPage = page;
+        this.applySortAndFilter();
+        // Scroll results container to top
+        this.results.scrollTop = 0;
     }
 
     createCard(item) {

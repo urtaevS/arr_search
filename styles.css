@@ -1968,3 +1968,104 @@ body{
     }
 
 }
+
+/* ==========================================================
+   PAGINATION
+========================================================== */
+
+.pagination{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 8px;
+    flex-shrink:0;
+    width:100%;
+}
+
+.page-group{
+    display:flex;
+    align-items:center;
+    gap:4px;
+}
+
+.page-group-left{
+    justify-content:flex-start;
+}
+
+.page-group-center{
+    justify-content:center;
+    gap:6px;
+}
+
+.page-group-right{
+    justify-content:flex-end;
+}
+
+.page-btn{
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.08);
+    border-radius:8px;
+    color:var(--text-secondary);
+    cursor:pointer;
+    font-size:16px;
+    line-height:1;
+    padding:8px 12px;
+    transition:all .2s ease;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    min-width:36px;
+    height:36px;
+}
+
+.page-btn:hover:not(:disabled){
+    background:rgba(255,255,255,.12);
+    color:var(--text-primary);
+    border-color:rgba(255,255,255,.2);
+}
+
+.page-btn:disabled{
+    opacity:.3;
+    cursor:default;
+}
+
+.edge-btn{
+    font-size:14px;
+    padding:8px 10px;
+}
+
+.page-info{
+    color:var(--text-secondary);
+    font-size:14px;
+    font-weight:500;
+    min-width:60px;
+    text-align:center;
+    user-select:none;
+}
+
+/* Mobile adjustments for pagination */
+@media (max-width:768px){
+    .pagination{
+        padding:12px 6px 100px;
+    }
+    .page-group{
+        gap:3px;
+    }
+    .page-group-center{
+        gap:4px;
+    }
+    .page-btn{
+        min-width:32px;
+        height:32px;
+        padding:6px 10px;
+        font-size:14px;
+    }
+    .edge-btn{
+        font-size:12px;
+        padding:6px 8px;
+    }
+    .page-info{
+        font-size:13px;
+        min-width:50px;
+    }
+}
