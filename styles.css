@@ -431,7 +431,7 @@ body{
 
         18px
 
-        calc(env(safe-area-inset-bottom) + 130px);
+        calc(env(safe-area-inset-bottom) + 95px);
 
     width:100%;
 
@@ -1080,6 +1080,8 @@ body{
     pointer-events:none;
 
     z-index:100;
+
+    will-change:transform;
 
 }
 
@@ -1866,7 +1868,7 @@ body{
         padding:
             8px
             14px
-            calc(env(safe-area-inset-bottom) + 130px);
+            calc(env(safe-area-inset-bottom) + 140px);
 
     }
 

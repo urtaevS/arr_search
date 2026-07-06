@@ -220,7 +220,7 @@ class TorrentApp {
         });
 
         // ==========================
-        // SCROLLBAR AUTO-HIDE
+        // SCROLLBAR AUTO-HIDE + SEARCH PANEL HIDE ON SCROLL DOWN
         // ==========================
 
         let scrollTimeout;
@@ -230,6 +230,18 @@ class TorrentApp {
             scrollTimeout = setTimeout(() => {
                 this.results.classList.remove("scrolling");
             }, 300);
+
+            // Hide search panel when scrolling near the bottom, show when scrolling up
+            const maxScroll = this.results.scrollHeight - this.results.clientHeight;
+            if (maxScroll > 0) {
+                const distanceFromBottom = maxScroll - this.results.scrollTop;
+                const hideZone = 200;
+                let hideProgress = 1 - (distanceFromBottom / hideZone);
+                hideProgress = Math.max(0, Math.min(1, hideProgress));
+                this.searchPanel.style.transform = `translateY(${hideProgress * 100}%)`;
+            } else {
+                this.searchPanel.style.transform = "translateY(0)";
+            }
         });
 
     }
@@ -1017,6 +1029,9 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
             e.stopPropagation();
 
             this.toggleBackend();
+
+            // Keep focus on search input so mobile keyboard stays open
+            this.input.focus();
 
         });
 
