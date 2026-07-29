@@ -719,31 +719,7 @@ body{
 
 }
 
-.source-icon{
 
-    width:11px;
-
-    height:11px;
-
-    margin-right:4px;
-
-    color:var(--text-secondary);
-
-    flex-shrink:0;
-
-}
-
-.source-icon[data-lucide="zap"]{
-
-    color:var(--primary); /* Prowlarr — голубой */
-
-}
-
-.source-icon[data-lucide="ship"]{
-
-    color:var(--text-secondary); /* Jackett — серый */
-
-}
 
 /* ---------- SEEDERS / LEECHERS ---------- */
 

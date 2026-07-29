@@ -123,6 +123,62 @@ function normalizeProwlarr(item) {
     };
 
 }
+
+async function searchSingleIndexer(query, indexerId) {
+
+    const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
+    searchUrl.searchParams.set("apikey", PROWLARR_API_KEY);
+    searchUrl.searchParams.set("query", query);
+    searchUrl.searchParams.append("indexerIds", indexerId);
+
+    const response = await axios.get(searchUrl.toString(), { timeout: 30000 });
+
+    const rawData = response.data || [];
+
+    return (Array.isArray(rawData) ? rawData : [])
+        .map(normalizeProwlarr);
+
+}
+
+async function warmupProwlarr() {
+
+    if (!PROWLARR_URL || !PROWLARR_API_KEY) return;
+
+    console.log("[warmup] Prowlarr предварительный прогрев...");
+
+    try {
+
+        // 1. Запрашиваем список индексаторов (инициализация соединения)
+        const parsed = new URL(`${PROWLARR_URL}/api/v1/indexer`);
+        parsed.searchParams.set("apikey", PROWLARR_API_KEY);
+
+        const idxResponse = await axios.get(parsed.toString(), { timeout: 10000 });
+
+        const idxData = idxResponse.data || [];
+
+        if (Array.isArray(idxData)) {
+            console.log("[warmup] Prowlarr: получено " + idxData.length + " индексаторов");
+        }
+
+        // 2. Лёгкий тестовый поисковый запрос для прогрева кэша
+        const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
+        searchUrl.searchParams.set("apikey", PROWLARR_API_KEY);
+        searchUrl.searchParams.set("query", "test");
+
+        await axios.get(searchUrl.toString(), { timeout: 15000 });
+
+        console.log("[warmup] Prowlarr поисковый тест выполнен");
+
+    } catch (error) {
+
+        console.warn("[warmup] Prowlarr ошибка прогрева:", error.message);
+
+    }
+
+    console.log("[warmup] Prowlarr прогрев завершён");
+
+}
+
 // =============================
 // INDEXERS API
 // =============================
@@ -327,6 +383,7 @@ app.get("/api/search", async (req, res) => {
     // 1. Если выбран Prowlarr (или Prowlarr настроен и не выбран Jackett)
     if (backend !== "jackett" && PROWLARR_URL && PROWLARR_API_KEY) {
 
+        // Шаг 1 — Быстрый массовый запрос (fast path)
         try {
 
             const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
@@ -341,11 +398,38 @@ app.get("/api/search", async (req, res) => {
 
             const rawData = response.data || [];
 
-            const results = (Array.isArray(rawData) ? rawData : [])
-                .map(normalizeProwlarr)
-                .sort((a, b) => b.seeders - a.seeders);
+            // Если Prowlarr вернул пустой результат или ошибку — пробуем ещё раз
+            if (!rawData || (Array.isArray(rawData) && rawData.length === 0) || rawData.error || rawData.message) {
 
-            return res.json(results);
+                console.log("[search] Prowlarr вернул пустой/ошибку, повтор через 2с...");
+
+                await new Promise(r => setTimeout(r, 2000));
+
+                const retryResponse = await axios.get(searchUrl.toString(), { timeout: 60000 });
+
+                const retryData = retryResponse.data || [];
+
+                if (retryData && (Array.isArray(retryData) ? retryData.length : !retryData.error)) {
+
+                    const results = (Array.isArray(retryData) ? retryData : [])
+                        .map(normalizeProwlarr)
+                        .sort((a, b) => b.seeders - a.seeders);
+
+                    if (results.length > 0) {
+                        return res.json(results);
+                    }
+
+                }
+
+            } else {
+
+                const results = (Array.isArray(rawData) ? rawData : [])
+                    .map(normalizeProwlarr)
+                    .sort((a, b) => b.seeders - a.seeders);
+
+                return res.json(results);
+
+            }
 
         } catch (error) {
 
@@ -353,7 +437,50 @@ app.get("/api/search", async (req, res) => {
             console.error(error.message);
             console.error("===========================\n");
 
-            // fallback to Jackett below
+        }
+
+        // Шаг 2 — Fault-tolerant fallback: индивидуальные запросы к каждому трекеру
+        if (trackerList.length > 0) {
+
+            console.log("[search] Fallback на индивидуальные запросы к трекерам...");
+
+            try {
+
+                const promises = trackerList.map(id =>
+                    searchSingleIndexer(query, id)
+                );
+
+                const settled = await Promise.allSettled(promises);
+
+                let allResults = [];
+
+                for (const result of settled) {
+
+                    if (result.status === "fulfilled" && result.value.length > 0) {
+
+                        allResults.push(...result.value);
+
+                    } else if (result.status === "rejected") {
+
+                        console.warn("[search] Запрос к трекеру не удался:", result.reason?.message || "неизвестная ошибка");
+
+                    }
+
+                }
+
+                if (allResults.length > 0) {
+
+                    allResults.sort((a, b) => b.seeders - a.seeders);
+
+                    return res.json(allResults);
+
+                }
+
+            } catch (fallbackError) {
+
+                console.error("[search] Ошибка fallback:", fallbackError.message);
+
+            }
 
         }
 
@@ -475,6 +602,9 @@ const server = app.listen(PORT, "0.0.0.0", () => {
 
     console.log("==================================");
     console.log("");
+
+    // Call warmup after server starts
+    warmupProwlarr();
 
 });
 

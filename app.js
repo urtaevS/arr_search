@@ -66,6 +66,18 @@ class TorrentApp {
 
             console.error("Failed to load indexers:", err);
 
+            this.indexersLoaded = true; // Помечаем как загруженные (с ошибкой)
+            this.indexers = []; // Пустой массив
+
+        }
+        finally {
+
+            // Автообновление выпадающего списка, если он открыт
+            if (this.trackerDropdownOpen) {
+                this.populateTrackerDropdown();
+                this.createIcons();
+            }
+
         }
 
     }
@@ -928,8 +940,40 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         if (!this.indexers.length) {
 
-            this.trackerDropdown.innerHTML =
-                `<p style="padding:16px;color:var(--text-secondary);font-size:14px;">Загрузка...</p>`;
+            if (!this.indexersLoaded) {
+
+                // Трекеры ещё загружаются — показываем спиннер
+                this.trackerDropdown.innerHTML = `
+                    <div style="padding:16px;text-align:center;">
+                        <div style="display:inline-block;width:20px;height:20px;border:2px solid rgba(255,255,255,.1);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite;"></div>
+                        <p style="margin-top:8px;color:var(--text-secondary);font-size:13px;">Загрузка трекеров...</p>
+                    </div>`;
+
+            } else {
+
+                // Загрузка завершилась, но трекеров нет — ошибка
+                this.trackerDropdown.innerHTML = `
+                    <div style="padding:16px;text-align:center;">
+                        <p style="color:var(--text-secondary);font-size:13px;margin-bottom:8px;">Не удалось загрузить трекеры</p>
+                        <button id="retryLoadIndexers" style="padding:6px 14px;border:1px solid rgba(255,255,255,.12);border-radius:8px;background:rgba(255,255,255,.06);color:var(--primary);cursor:pointer;font-family:inherit;font-size:13px;">Повторить</button>
+                    </div>`;
+
+                // Используем setTimeout(..., 0), чтобы кнопка уже была в DOM
+                setTimeout(() => {
+
+                    const retryBtn = document.getElementById("retryLoadIndexers");
+                    if (retryBtn) {
+                        retryBtn.addEventListener("click", (e) => {
+                            e.stopPropagation();
+                            retryBtn.textContent = "Загрузка...";
+                            retryBtn.disabled = true;
+                            this.loadIndexers();
+                        });
+                    }
+
+                }, 0);
+
+            }
 
             return;
 
@@ -1168,27 +1212,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         node.querySelector(".tracker").textContent =
             item.tracker;
-
-        // ==========================
-        // Source icon
-        // ==========================
-
-        const sourceIcon =
-            node.querySelector(".source-icon");
-
-        if (sourceIcon) {
-
-            if (item.source === "prowlarr") {
-
-                sourceIcon.setAttribute("data-lucide", "zap");
-
-            } else {
-
-                sourceIcon.setAttribute("data-lucide", "ship");
-
-            }
-
-        }
 
         // ==========================
         // Tracker color
