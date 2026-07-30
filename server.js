@@ -116,20 +116,27 @@ function normalizeProwlarr(item) {
 
         details: item.infoUrl || item.guid || "",
 
-        category: Array.isArray(item.categories) ? item.categories.join(", ") : "",
-
+        category: Array.isArray(item.categories) ? item.categories.map(c => {
+            if (typeof c === "string") return c;
+            if (typeof c?.name === "string" && c.name) return c.name;
+            if (typeof c?.categoryName === "string" && c.categoryName) return c.categoryName;
+            if (typeof c?.title === "string" && c.title) return c.title;
+            return null;
+        }).filter(Boolean).join(", ") : "",
         tags: []
-
     };
-
 }
 
-async function searchSingleIndexer(query, indexerId) {
+async function searchSingleIndexer(query, indexerId, categoryList = []) {
 
     const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
     searchUrl.searchParams.set("apikey", PROWLARR_API_KEY);
     searchUrl.searchParams.set("query", query);
     searchUrl.searchParams.append("indexerIds", indexerId);
+
+    if (categoryList.length > 0) {
+        categoryList.forEach(cid => searchUrl.searchParams.append("categories", cid));
+    }
 
     const response = await axios.get(searchUrl.toString(), { timeout: 30000 });
 
@@ -178,6 +185,59 @@ async function warmupProwlarr() {
     console.log("[warmup] Prowlarr прогрев завершён");
 
 }
+
+// =============================
+// CATEGORIES API
+// =============================
+
+app.get("/api/categories", async (req, res) => {
+
+    if (!PROWLARR_URL || !PROWLARR_API_KEY) {
+        return res.json([]);
+    }
+
+    try {
+
+        const parsed = new URL(`${PROWLARR_URL}/api/v1/indexer`);
+        parsed.searchParams.set("apikey", PROWLARR_API_KEY);
+
+        const response = await axios.get(parsed.toString(), { timeout: 10000 });
+
+        const data = response.data || [];
+
+        const seen = new Map();
+
+        for (const idx of Array.isArray(data) ? data : []) {
+
+            const cats = idx.capabilities?.categories || [];
+
+            for (const cat of cats) {
+
+                if (!seen.has(cat.id)) {
+                    seen.set(cat.id, {
+                        id: cat.id,
+                        name: cat.name
+                    });
+                }
+
+            }
+
+        }
+
+        const categories = Array.from(seen.values())
+            .filter(cat => cat.id < 10000)
+            .sort((a, b) => a.name.localeCompare(b.name));
+
+        return res.json(categories);
+
+    } catch (error) {
+
+        console.error("[categories] Prowlarr fetch failed:", error.message);
+        return res.json([]);
+
+    }
+
+});
 
 // =============================
 // INDEXERS API
@@ -394,6 +454,13 @@ app.get("/api/search", async (req, res) => {
                 trackerList.forEach(id => searchUrl.searchParams.append("indexerIds", id));
             }
 
+            const categories = (req.query.categories || "").trim();
+            if (categories) {
+                categories.split(",").map(s => s.trim()).filter(Boolean).forEach(cid => {
+                    searchUrl.searchParams.append("categories", cid);
+                });
+            }
+
             const response = await axios.get(searchUrl.toString(), { timeout: 60000 });
 
             const rawData = response.data || [];
@@ -446,8 +513,11 @@ app.get("/api/search", async (req, res) => {
 
             try {
 
+                const categories = (req.query.categories || "").trim();
+                const categoryList = categories ? categories.split(",").map(s => s.trim()).filter(Boolean) : [];
+
                 const promises = trackerList.map(id =>
-                    searchSingleIndexer(query, id)
+                    searchSingleIndexer(query, id, categoryList)
                 );
 
                 const settled = await Promise.allSettled(promises);

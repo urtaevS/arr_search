@@ -32,6 +32,10 @@ class TorrentApp {
         this.currentPage = 0;
         this.pageSize = 10;
 
+        this.categories = [];
+        this.selectedCategories = new Set();
+        this.categoryFilterOpen = false;
+
     }
 
     init() {
@@ -39,6 +43,8 @@ class TorrentApp {
         this.bindEvents();
 
         this.loadIndexers();
+
+        this.loadCategories();
 
         this.showEmptyStart();
 
@@ -80,6 +86,183 @@ class TorrentApp {
 
         }
 
+    }
+
+    async loadCategories() {
+
+        if (this.activeBackend !== "prowlarr") return;
+
+        try {
+
+            const res = await fetch(`/api/categories`);
+
+            if (!res.ok) throw new Error("HTTP " + res.status);
+
+            this.categories = await res.json();
+
+        } catch (err) {
+
+            console.error("Failed to load categories:", err);
+
+            this.categories = [];
+
+        }
+
+    }
+
+    toggleCategoryFilter() {
+
+        if (this.categoryFilterOpen) {
+            this.closeCategoryFilter();
+        } else {
+            this.openCategoryFilter();
+        }
+
+    }
+
+    openCategoryFilter() {
+
+        if (this.activeBackend !== "prowlarr") return;
+
+        if (this.categories.length === 0) {
+            this.loadCategories().then(() => {
+                if (this.categories.length > 0) {
+                    this.categoryFilterOpen = true;
+                    this.populateCategoriesPanel();
+                }
+            });
+            return;
+        }
+
+        this.categoryFilterOpen = true;
+
+        this.populateCategoriesPanel();
+
+    }
+
+    closeCategoryFilter() {
+
+        this.categoryFilterOpen = false;
+
+        const panel = document.getElementById("categoriesPanel");
+        if (panel) panel.remove();
+
+    }
+
+    populateCategoriesPanel() {
+
+        // Удаляем существующую панель
+        const existing = document.getElementById("categoriesPanel");
+        if (existing) existing.remove();
+
+        const btn = document.getElementById("categoryFilterBtn");
+        if (!btn) return;
+
+        const rect = btn.getBoundingClientRect();
+
+        const panel = document.createElement("div");
+        panel.id = "categoriesPanel";
+        panel.className = "categories-panel";
+
+        // Название и кнопка сброса
+        let html = `<div class="categories-header">
+            <span class="categories-title">Категории</span>
+            <button class="categories-clear" id="categoriesClearBtn">Очистить</button>
+        </div>`;
+
+        html += `<div class="categories-list">`;
+
+        this.categories.forEach(cat => {
+
+            const active = this.selectedCategories.has(cat.id);
+
+            html += `<label class="category-item${active ? " active" : ""}">
+                <input type="checkbox" class="category-checkbox" value="${cat.id}"${active ? " checked" : ""}>
+                <span class="category-name">${cat.name}</span>
+            </label>`;
+
+        });
+
+        html += `</div>`;
+
+        panel.innerHTML = html;
+
+        // Позиционируем панель ниже кнопки
+        panel.style.position = "fixed";
+        panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 260)) + "px";
+        panel.style.bottom = (window.innerHeight - rect.top + 8) + "px";
+
+        document.body.appendChild(panel);
+
+        // События
+        panel.querySelectorAll(".category-checkbox").forEach(cb => {
+
+            cb.addEventListener("change", (e) => {
+
+                e.stopPropagation();
+
+                const id = parseInt(cb.value);
+
+                if (cb.checked) {
+                    this.selectedCategories.add(id);
+                } else {
+                    this.selectedCategories.delete(id);
+                }
+
+                // Обновляем класс у label
+                cb.closest(".category-item").classList.toggle("active", cb.checked);
+
+                // Обновляем иконку кнопки категорий
+                this.updateCategoryFilterIcon();
+
+            });
+
+        });
+
+        const clearBtn = document.getElementById("categoriesClearBtn");
+        if (clearBtn) {
+            clearBtn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.selectedCategories.clear();
+                panel.querySelectorAll(".category-checkbox").forEach(cb => {
+                    cb.checked = false;
+                    cb.closest(".category-item").classList.remove("active");
+                });
+                // Обновляем иконку кнопки категорий
+                this.updateCategoryFilterIcon();
+            });
+        }
+
+        // Закрытие по клику вне панели
+        const closeHandler = (e) => {
+            if (this.categoryFilterOpen && !panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+                this.closeCategoryFilter();
+                document.removeEventListener("click", closeHandler);
+            }
+        };
+
+        // Используем setTimeout, чтобы не сработало сразу на том же клике
+        setTimeout(() => {
+            document.addEventListener("click", closeHandler);
+        }, 0);
+
+    }
+
+    updateCategoryFilterIcon() {
+        const btn = document.getElementById("categoryFilterBtn");
+        if (!btn) return;
+        const newIcon = this.selectedCategories.size > 0 ? "list-filter-plus" : "list-filter";
+        // Remove old SVG icon
+        const oldSvg = btn.querySelector("svg");
+        if (oldSvg) oldSvg.remove();
+        // Remove old <i> element if still there
+        const oldI = btn.querySelector("i[data-lucide]");
+        if (oldI) oldI.remove();
+        // Create new <i> element
+        const icon = document.createElement("i");
+        icon.setAttribute("data-lucide", newIcon);
+        btn.prepend(icon);
+        this.createIcons();
     }
 
     bindEvents() {
@@ -150,6 +333,7 @@ class TorrentApp {
             if (
                 this.trackerDropdownOpen &&
                 !this.trackerDropdown?.contains(e.target) &&
+                !document.getElementById("categoriesPanel")?.contains(e.target) &&
                 !e.target.closest('.search-box') &&
                 e.target !== this.searchFab &&
                 !this.searchFab?.contains(e.target)
@@ -288,11 +472,15 @@ class TorrentApp {
             ? `&trackers=${[...this.selectedTrackers].join(",")}`
             : "";
 
+        const categoriesParam = this.selectedCategories.size > 0
+            ? `&categories=${[...this.selectedCategories].join(",")}`
+            : "";
+
         try {
 
             const response = await fetch(
 
-                `/api/search?q=${encodeURIComponent(query)}${trackersParam}&backend=${this.activeBackend}`
+                `/api/search?q=${encodeURIComponent(query)}${trackersParam}${categoriesParam}&backend=${this.activeBackend}`
 
             );
 
@@ -828,6 +1016,16 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         });
 
+        // Сбрасываем категории при переключении бэкенда
+        this.selectedCategories.clear();
+        this.closeCategoryFilter();
+
+        if (this.activeBackend === "prowlarr") {
+            this.loadCategories();
+        } else {
+            this.categories = [];
+        }
+
     }
 
     clearResults() {
@@ -932,6 +1130,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.trackerDropdown.classList.remove("open");
 
+        this.closeCategoryFilter();
+
         this.createIcons();
 
     }
@@ -999,11 +1199,20 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             </button>
 
-            <button class="backend-toggle" id="backendToggle" title="${backendName}">
+            <div class="backend-actions">
 
-                <img src="icons/${this.activeBackend}.png" alt="${backendName}" id="backendIcon">
+                ${this.activeBackend === "prowlarr" ? `
+                <button class="category-filter-btn" id="categoryFilterBtn" title="Категории">
+                    <i data-lucide="${this.selectedCategories.size > 0 ? "list-filter-plus" : "list-filter"}"></i>
+                </button>` : ""}
 
-            </button>
+                <button class="backend-toggle" id="backendToggle" title="${backendName}">
+
+                    <img src="icons/${this.activeBackend}.png" alt="${backendName}" id="backendIcon">
+
+                </button>
+
+            </div>
 
         </div>`;
 
@@ -1076,6 +1285,18 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             // Keep focus on search input so mobile keyboard stays open
             this.input.focus();
+
+        });
+
+        // Category filter button
+        const categoryBtn =
+            this.trackerDropdown.querySelector(".category-filter-btn");
+
+        categoryBtn?.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            this.toggleCategoryFilter();
 
         });
 
@@ -1212,6 +1433,17 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         node.querySelector(".tracker").textContent =
             item.tracker;
+
+        // ==========================
+        // Category label
+        // ==========================
+
+        const categoryLabel =
+            node.querySelector(".category-label");
+
+        if (categoryLabel && item.category) {
+            categoryLabel.textContent = item.category;
+        }
 
         // ==========================
         // Tracker color
