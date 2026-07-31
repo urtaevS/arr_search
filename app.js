@@ -21,6 +21,7 @@ class TorrentApp {
         this.isSearching = false;
         this.activeBackend = "prowlarr";
         this.trackerDropdownOpen = false;
+        this.dropdownMode = "tracker";
         this.selectedTrackers = new Set();
         this.indexers = [];
         this.indexersLoaded = false;
@@ -35,12 +36,16 @@ class TorrentApp {
         this.categories = [];
         this.selectedCategories = new Set();
         this.categoryFilterOpen = false;
+        this.inputFocused = false;
 
     }
 
     init() {
 
         this.bindEvents();
+
+        // Кнопка категорий видна только при фокусе на поле поиска
+        this.hideCategoryBtn();
 
         this.loadIndexers();
 
@@ -78,8 +83,8 @@ class TorrentApp {
         }
         finally {
 
-            // Автообновление выпадающего списка, если он открыт
-            if (this.trackerDropdownOpen) {
+            // Автообновление выпадающего списка, если он открыт (но не в режиме категорий)
+            if (this.trackerDropdownOpen && this.dropdownMode === "tracker") {
                 this.populateTrackerDropdown();
                 this.createIcons();
             }
@@ -112,61 +117,47 @@ class TorrentApp {
 
     toggleCategoryFilter() {
 
-        if (this.categoryFilterOpen) {
-            this.closeCategoryFilter();
-        } else {
-            this.openCategoryFilter();
-        }
-
-    }
-
-    openCategoryFilter() {
-
         if (this.activeBackend !== "prowlarr") return;
 
-        if (this.categories.length === 0) {
-            this.loadCategories().then(() => {
-                if (this.categories.length > 0) {
-                    this.categoryFilterOpen = true;
-                    this.populateCategoriesPanel();
-                }
-            });
+        // Если окно уже открыто в режиме категорий — возвращаем окно трекеров
+        if (this.dropdownMode === "category" && this.trackerDropdownOpen) {
+            this.openTrackerDropdown();
             return;
         }
 
+        // Иначе открываем окно категорий (на месте окна трекеров)
+        const show = () => this.renderCategoriesDropdown();
+        if (this.categories.length === 0) {
+            this.loadCategories().then(show);
+        } else {
+            show();
+        }
+
+        // Не убираем фокус с окна поиска
+        this.input.focus();
+
+    }
+
+    renderCategoriesDropdown() {
+
+        if (this.activeBackend !== "prowlarr") return;
+
+        this.dropdownMode = "category";
+        this.trackerDropdownOpen = true;
         this.categoryFilterOpen = true;
 
-        this.populateCategoriesPanel();
+        // Позиционируем так же, как окно трекеров
+        const box = this.searchPanel.querySelector(".search-box").getBoundingClientRect();
+        this.trackerDropdown.style.left = box.left + "px";
+        this.trackerDropdown.style.width = box.width + "px";
+        this.trackerDropdown.style.bottom = (window.innerHeight - box.top + 8) + "px";
+        this.trackerDropdown.classList.add("open", "categories-mode");
 
-    }
-
-    closeCategoryFilter() {
-
-        this.categoryFilterOpen = false;
-
-        const panel = document.getElementById("categoriesPanel");
-        if (panel) panel.remove();
-
-    }
-
-    populateCategoriesPanel() {
-
-        // Удаляем существующую панель
-        const existing = document.getElementById("categoriesPanel");
-        if (existing) existing.remove();
-
-        const btn = document.getElementById("categoryFilterBtn");
-        if (!btn) return;
-
-        const rect = btn.getBoundingClientRect();
-
-        const panel = document.createElement("div");
-        panel.id = "categoriesPanel";
-        panel.className = "categories-panel";
-
-        // Название и кнопка сброса
+        // Заголовок и подсказка (по умолчанию — все категории)
+        const hasFilter = this.selectedCategories.size > 0;
         let html = `<div class="categories-header">
             <span class="categories-title">Категории</span>
+            <span class="categories-hint">${hasFilter ? "Фильтр включён" : "Поиск по всем категориям"}</span>
             <button class="categories-clear" id="categoriesClearBtn">Очистить</button>
         </div>`;
 
@@ -176,82 +167,102 @@ class TorrentApp {
 
             const active = this.selectedCategories.has(cat.id);
 
-            html += `<label class="category-item${active ? " active" : ""}">
+            html += `<div class="category-item${active ? " active" : ""}" data-id="${cat.id}">
                 <input type="checkbox" class="category-checkbox" value="${cat.id}"${active ? " checked" : ""}>
                 <span class="category-name">${cat.name}</span>
-            </label>`;
+            </div>`;
 
         });
 
         html += `</div>`;
 
-        panel.innerHTML = html;
+        this.trackerDropdown.innerHTML = html;
 
-        // Позиционируем панель ниже кнопки
-        panel.style.position = "fixed";
-        panel.style.left = Math.max(8, Math.min(rect.left, window.innerWidth - 260)) + "px";
-        panel.style.bottom = (window.innerHeight - rect.top + 8) + "px";
+        // События — клик по всей строке (надёжно работает и на тач-экранах)
+        this.trackerDropdown.querySelectorAll(".category-item").forEach(item => {
 
-        document.body.appendChild(panel);
+            item.addEventListener("click", (e) => {
 
-        // События
-        panel.querySelectorAll(".category-checkbox").forEach(cb => {
-
-            cb.addEventListener("change", (e) => {
-
+                e.preventDefault();
                 e.stopPropagation();
 
+                const cb = item.querySelector(".category-checkbox");
                 const id = parseInt(cb.value);
 
-                if (cb.checked) {
-                    this.selectedCategories.add(id);
-                } else {
+                if (this.selectedCategories.has(id)) {
                     this.selectedCategories.delete(id);
+                    cb.checked = false;
+                } else {
+                    this.selectedCategories.add(id);
+                    cb.checked = true;
                 }
 
-                // Обновляем класс у label
-                cb.closest(".category-item").classList.toggle("active", cb.checked);
+                item.classList.toggle("active", cb.checked);
+
+                // Обновляем подсказку в заголовке
+                const hint = this.trackerDropdown.querySelector(".categories-hint");
+                if (hint) {
+                    hint.textContent = this.selectedCategories.size > 0
+                        ? "Фильтр включён"
+                        : "Поиск по всем категориям";
+                }
 
                 // Обновляем иконку кнопки категорий
                 this.updateCategoryFilterIcon();
+
+                // Не убираем фокус с окна поиска
+                this.input.focus();
 
             });
 
         });
 
-        const clearBtn = document.getElementById("categoriesClearBtn");
+        const clearBtn = this.trackerDropdown.querySelector("#categoriesClearBtn");
         if (clearBtn) {
             clearBtn.addEventListener("click", (e) => {
                 e.stopPropagation();
                 this.selectedCategories.clear();
-                panel.querySelectorAll(".category-checkbox").forEach(cb => {
+                this.trackerDropdown.querySelectorAll(".category-item").forEach(item => {
+                    const cb = item.querySelector(".category-checkbox");
                     cb.checked = false;
-                    cb.closest(".category-item").classList.remove("active");
+                    item.classList.remove("active");
                 });
-                // Обновляем иконку кнопки категорий
+                const hint = this.trackerDropdown.querySelector(".categories-hint");
+                if (hint) hint.textContent = "Поиск по всем категориям";
                 this.updateCategoryFilterIcon();
+                this.input.focus();
             });
         }
 
-        // Закрытие по клику вне панели
-        const closeHandler = (e) => {
-            if (this.categoryFilterOpen && !panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-                this.closeCategoryFilter();
-                document.removeEventListener("click", closeHandler);
-            }
-        };
+        this.createIcons();
 
-        // Используем setTimeout, чтобы не сработало сразу на том же клике
-        setTimeout(() => {
-            document.addEventListener("click", closeHandler);
-        }, 0);
+    }
 
+    closeCategoryFilter() {
+
+        this.categoryFilterOpen = false;
+        this.trackerDropdown.classList.remove("categories-mode");
+
+    }
+
+    showCategoryBtn() {
+        const btn = document.getElementById("categoryFilterBtn");
+        if (!btn || this.activeBackend !== "prowlarr") return;
+        btn.style.display = "flex";
+    }
+
+    hideCategoryBtn() {
+        const btn = document.getElementById("categoryFilterBtn");
+        if (!btn) return;
+        btn.style.display = "none";
     }
 
     updateCategoryFilterIcon() {
         const btn = document.getElementById("categoryFilterBtn");
         if (!btn) return;
-        const newIcon = this.selectedCategories.size > 0 ? "list-filter-plus" : "list-filter";
+        const hasCategories = this.selectedCategories.size > 0;
+        const newIcon = hasCategories ? "list-filter-plus" : "list-filter";
+        btn.classList.toggle("active", hasCategories);
         // Remove old SVG icon
         const oldSvg = btn.querySelector("svg");
         if (oldSvg) oldSvg.remove();
@@ -267,11 +278,34 @@ class TorrentApp {
 
     bindEvents() {
 
+        // Стрелка поиска — сразу запускаем поиск (первое нажатие)
         this.searchButton.addEventListener("click", () => {
 
             this.search();
 
         });
+
+        // Кнопка выбора категорий в окне поиска
+        const categoryBtn = document.getElementById("categoryFilterBtn");
+        if (categoryBtn) {
+            this.categoryBtn = categoryBtn;
+
+            // Если тапнуть по кнопке — инпут теряет фокус и blur-обработчик
+            // прячет кнопку раньше, чем сработает click. Подавляем это.
+            categoryBtn.addEventListener("mousedown", () => {
+                this._suppressBlurHide = true;
+            });
+            categoryBtn.addEventListener("touchstart", () => {
+                this._suppressBlurHide = true;
+            }, { passive: true });
+
+            categoryBtn.addEventListener("click", (e) => {
+                this._suppressBlurHide = false;
+                e.preventDefault();
+                e.stopPropagation();
+                this.toggleCategoryFilter();
+            });
+        }
 
         this.input.addEventListener("keydown", (e) => {
 
@@ -324,16 +358,30 @@ class TorrentApp {
         // ==========================
 
         this.input.addEventListener("focus", () => {
+            this.inputFocused = true;
+            this.showCategoryBtn();
             if (!this.trackerDropdownOpen) {
                 this.openTrackerDropdown();
             }
+        });
+
+        this.input.addEventListener("blur", (e) => {
+            if (this._suppressBlurHide) {
+                this._suppressBlurHide = false;
+                return;
+            }
+            const target = e.relatedTarget;
+            if (target && (target.id === "categoryFilterBtn" || target.closest?.(".search-box"))) {
+                return;
+            }
+            this.inputFocused = false;
+            this.hideCategoryBtn();
         });
 
         document.addEventListener("click", (e) => {
             if (
                 this.trackerDropdownOpen &&
                 !this.trackerDropdown?.contains(e.target) &&
-                !document.getElementById("categoriesPanel")?.contains(e.target) &&
                 !e.target.closest('.search-box') &&
                 e.target !== this.searchFab &&
                 !this.searchFab?.contains(e.target)
@@ -461,6 +509,9 @@ class TorrentApp {
         this.closeSettings();
 
         this.closeTrackerDropdown();
+
+        // Кнопка категорий исчезает после начала поиска
+        this.hideCategoryBtn();
 
         this.isSearching = true;
 
@@ -1018,7 +1069,16 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         // Сбрасываем категории при переключении бэкенда
         this.selectedCategories.clear();
+        this.dropdownMode = "tracker";
         this.closeCategoryFilter();
+
+        // Категории доступны только для Prowlarr — скрываем кнопку для Jackett
+        if (this.activeBackend === "prowlarr") {
+            this.showCategoryBtn();
+        } else {
+            this.hideCategoryBtn();
+        }
+        this.updateCategoryFilterIcon();
 
         if (this.activeBackend === "prowlarr") {
             this.loadCategories();
@@ -1106,6 +1166,10 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.trackerDropdownOpen = true;
 
+        this.dropdownMode = "tracker";
+
+        this.trackerDropdown.classList.remove("categories-mode");
+
         this.populateTrackerDropdown();
 
         // Position dropdown above search box
@@ -1122,15 +1186,20 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.createIcons();
 
+        // Keep focus on search input so mobile keyboard stays open
+        this.input.focus();
+
     }
 
     closeTrackerDropdown() {
 
         this.trackerDropdownOpen = false;
 
-        this.trackerDropdown.classList.remove("open");
+        this.dropdownMode = "tracker";
 
-        this.closeCategoryFilter();
+        this.categoryFilterOpen = false;
+
+        this.trackerDropdown.classList.remove("open", "categories-mode");
 
         this.createIcons();
 
@@ -1200,11 +1269,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
             </button>
 
             <div class="backend-actions">
-
-                ${this.activeBackend === "prowlarr" ? `
-                <button class="category-filter-btn" id="categoryFilterBtn" title="Категории">
-                    <i data-lucide="${this.selectedCategories.size > 0 ? "list-filter-plus" : "list-filter"}"></i>
-                </button>` : ""}
 
                 <button class="backend-toggle" id="backendToggle" title="${backendName}">
 
@@ -1285,18 +1349,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             // Keep focus on search input so mobile keyboard stays open
             this.input.focus();
-
-        });
-
-        // Category filter button
-        const categoryBtn =
-            this.trackerDropdown.querySelector(".category-filter-btn");
-
-        categoryBtn?.addEventListener("click", (e) => {
-
-            e.stopPropagation();
-
-            this.toggleCategoryFilter();
 
         });
 

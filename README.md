@@ -1,6 +1,16 @@
 # Torrent Search
 
-Поиск торрентов по множеству трекеров через Jackett / Prowlarr.
+Поиск торрентов по множеству трекеров через **Jackett** и **Prowlarr**.
+
+## ✨ Возможности
+
+- Поддержка **Jackett** и **Prowlarr** (переключение одним кликом)
+- **Предварительный фильтр по категориям** (Newznab: Movies, TV, Audio, PC, Books, Console, XXX и др.)
+- Фильтрация поиска по отдельным трекерам
+- Отображение категории в карточке результата
+- PWA — работает как приложение на Android и iOS
+- Адаптивный интерфейс с Lucide-иконками
+- Категории синхронизируются из Prowlarr при переключении на него
 
 ## 🚀 Запуск
 
@@ -31,8 +41,8 @@ docker compose up -d
 | `JACKETT_URL` | URL Jackett (например, `http://jackett:9118`) |
 | `JACKETT_API_KEY` | API-ключ Jackett |
 | `JACKETT_INDEXERS` | Список индексаторов через запятую (опционально) |
-| `PROWLARR_URL` | URL Prowlarr (опционально) |
-| `PROWLARR_API_KEY` | API-ключ Prowlarr (опционально) |
+| `PROWLARR_URL` | URL Prowlarr (например, `http://prowlarr:9696`) |
+| `PROWLARR_API_KEY` | API-ключ Prowlarr |
 
 ## 🐳 Docker Hub
 
@@ -40,6 +50,19 @@ docker compose up -d
 docker build -t yourusername/torrent-search .
 docker push yourusername/torrent-search
 ```
+
+При пуше в репозиторий GitHub Actions автоматически собирает и публикует образ в Docker Hub.
+
+## 🔍 Фильтр категорий
+
+При использовании **Prowlarr** в выпадающем списке трекеров появляется кнопка фильтра категорий:
+
+1. Нажмите на иконку фильтра (рядом с логотипом Prowlarr)
+2. Выберите одну или несколько категорий (Movies, TV, Audio...)
+3. Результаты поиска будут ограничены выбранными категориями
+4. В карточке результата отобразится название категории
+5. Иконка фильтра меняется на `list-filter-plus` при активных категориях
+6. При переключении на Jackett категории сбрасываются
 
 ## 📦 PWA
 

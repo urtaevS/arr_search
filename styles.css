@@ -1113,7 +1113,7 @@ body{
 
     gap:12px;
 
-    padding:0 16px;
+    padding:0 6px 0 16px;
 
     border-radius:999px;
 
@@ -1175,6 +1175,21 @@ body{
 .search-box input::placeholder{
 
     color:var(--text-secondary);
+
+}
+
+/* Компактный блок кнопок у правого края: категории + стрелка поиска */
+
+.search-actions{
+
+    display:flex;
+    align-items:center;
+
+    gap:2px;
+
+    margin-left:auto;
+
+    flex-shrink:0;
 
 }
 
@@ -1242,6 +1257,60 @@ body{
 .search-box .search-btn-inner:active{
 
     transform:scale(.9);
+
+}
+
+.search-box .search-category-btn{
+
+    width:36px;
+    height:36px;
+
+    padding:0;
+    margin:0;
+
+    border:none;
+    border-radius:50%;
+
+    cursor:pointer;
+
+    color:var(--text-secondary);
+
+    background:transparent;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    flex-shrink:0;
+
+    transition:color .2s, background .2s, transform .2s;
+
+}
+
+.search-box .search-category-btn svg{
+
+    width:18px;
+    height:18px;
+
+}
+
+.search-box .search-category-btn:hover{
+
+    color:var(--primary);
+
+    background:rgba(46,166,255,.10);
+
+}
+
+.search-box .search-category-btn:active{
+
+    transform:scale(.9);
+
+}
+
+.search-box .search-category-btn.active{
+
+    color:var(--primary);
 
 }
 
@@ -1609,6 +1678,52 @@ body{
         0 8px 32px rgba(0,0,0,.40),
         inset 0 1px 0 rgba(255,255,255,.08),
         0 0 0 4px rgba(46,166,255,.08);
+
+}
+
+/* ---------- CATEGORIES MODE (окно категорий в стиле окна трекеров) ---------- */
+
+.tracker-dropdown.categories-mode{
+
+    display:flex;
+    flex-direction:column;
+
+    padding:0;
+
+    overflow:hidden;
+
+}
+
+.tracker-dropdown.categories-mode .categories-header{
+
+    flex-shrink:0;
+
+    padding:12px 14px;
+
+}
+
+.tracker-dropdown.categories-mode .categories-list{
+
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:2px 12px;
+
+    align-content:start;
+
+    overflow-y:auto;
+
+    max-height:280px;
+
+    padding:6px 8px 12px;
+
+    -webkit-overflow-scrolling:touch;
+
+}
+
+.tracker-dropdown.categories-mode .category-item{
+
+    min-width:0;
+    border-radius:8px;
 
 }
 
@@ -2198,6 +2313,20 @@ body{
 
 }
 
+.categories-hint{
+
+    color:var(--text-secondary);
+
+    font-size:12px;
+
+    white-space:nowrap;
+
+    overflow:hidden;
+
+    text-overflow:ellipsis;
+
+}
+
 .categories-clear{
 
     background:none;
@@ -2254,6 +2383,11 @@ body{
 
     color:var(--text-secondary);
 
+    user-select:none;
+    -webkit-user-select:none;
+
+    -webkit-tap-highlight-color:transparent;
+
 }
 
 .category-item:hover{
@@ -2282,7 +2416,7 @@ body{
 
     border-radius:4px;
 
-    cursor:pointer;
+    pointer-events:none;
 
     flex-shrink:0;
 
@@ -2327,5 +2461,10 @@ body{
 .category-name{
 
     flex:1;
+    min-width:0;
+
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
 
 }
