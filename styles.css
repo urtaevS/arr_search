@@ -1231,6 +1231,10 @@ body{
 
     overflow:hidden;
 
+    outline:none;
+
+    -webkit-tap-highlight-color:transparent;
+
 }
 
 .search-box .search-btn-inner.visible{
@@ -1257,6 +1261,10 @@ body{
 .search-box .search-btn-inner:active{
 
     transform:scale(.9);
+
+    color:var(--primary);
+
+    background:rgba(46,166,255,.10);
 
 }
 
@@ -1285,6 +1293,10 @@ body{
 
     transition:color .2s, background .2s, transform .2s;
 
+    outline:none;
+
+    -webkit-tap-highlight-color:transparent;
+
 }
 
 .search-box .search-category-btn svg{
@@ -1305,6 +1317,10 @@ body{
 .search-box .search-category-btn:active{
 
     transform:scale(.9);
+
+    color:var(--primary);
+
+    background:rgba(46,166,255,.10);
 
 }
 
