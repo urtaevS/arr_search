@@ -196,6 +196,110 @@ body{
 
 }
 
+.header-right{
+
+    display:flex;
+    align-items:center;
+
+    gap:10px;
+
+    flex-shrink:0;
+
+}
+
+/* ---------- FAVORITES BUTTON (header) ---------- */
+
+.favorites-btn{
+
+    position:relative;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    width:40px;
+    height:40px;
+
+    padding:0;
+    margin:0;
+
+    border:none;
+    border-radius:12px;
+
+    background:rgba(255,255,255,.06);
+
+    color:var(--text-secondary);
+
+    cursor:pointer;
+
+    transition:color .2s, background .2s, transform .2s;
+
+    outline:none;
+
+    -webkit-tap-highlight-color:transparent;
+
+}
+
+.favorites-btn.hidden{
+
+    display:none;
+
+}
+
+.favorites-btn svg{
+
+    width:18px;
+    height:18px;
+
+}
+
+.favorites-btn:hover{
+
+    color:#FBBF24;
+
+    background:rgba(251,191,36,.12);
+
+}
+
+.favorites-btn:active{
+
+    transform:scale(.9);
+
+    color:#FBBF24;
+
+    background:rgba(251,191,36,.18);
+
+}
+
+.favorites-count{
+
+    position:absolute;
+
+    top:-3px;
+    right:-3px;
+
+    min-width:16px;
+    height:16px;
+
+    padding:0 4px;
+
+    border-radius:8px;
+
+    background:#F59E0B;
+
+    color:#0B0E14;
+
+    font-size:10px;
+    font-weight:800;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    line-height:1;
+
+}
+
 .header-count{
 
     display:none;
@@ -710,6 +814,20 @@ body{
 
     word-break:break-word;
 
+    cursor:pointer;
+
+}
+
+.torrent-title:hover{
+
+    color:var(--primary);
+
+    text-decoration:underline;
+
+    text-decoration-color:rgba(46,166,255,.4);
+
+    text-underline-offset:3px;
+
 }
 
 .card-header{
@@ -943,6 +1061,223 @@ body{
 .action-icon.details:hover{
 
     background:rgba(245,158,11,.32);
+
+}
+
+.action-icon.fav{
+
+    background:rgba(251,191,36,.16);
+
+    color:#FBBF24;
+
+}
+
+.action-icon.fav:hover{
+
+    background:rgba(251,191,36,.30);
+
+}
+
+.action-icon.fav.active{
+
+    background:rgba(251,191,36,.34);
+
+    color:#FBBF24;
+
+}
+
+.action-icon.fav svg{
+
+    fill:transparent;
+
+    transition:fill .2s;
+
+}
+
+.action-icon.fav.active svg{
+
+    fill:currentColor;
+
+}
+
+/* ---------- FAVORITES LIST (drawer) ---------- */
+
+.favorites-list{
+
+    display:flex;
+    flex-direction:column;
+
+    gap:10px;
+
+    padding:12px 0 16px;
+
+}
+
+.favorites-empty{
+
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+
+    gap:8px;
+
+    padding:36px 16px;
+
+    text-align:center;
+
+    color:var(--text-secondary);
+
+    font-size:14px;
+
+}
+
+.favorites-empty .empty-icon{
+
+    width:48px;
+    height:48px;
+
+    border-radius:16px;
+
+    background:rgba(251,191,36,.12);
+
+    color:#FBBF24;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    margin-bottom:4px;
+
+}
+
+.favorites-empty .empty-icon svg{
+
+    width:22px;
+    height:22px;
+
+}
+
+.favorites-empty-hint{
+
+    font-size:12px;
+
+    color:var(--text-secondary);
+
+    opacity:.7;
+
+}
+
+.favorite-item{
+
+    display:flex;
+    align-items:center;
+
+    gap:10px;
+
+    padding:12px 14px;
+
+    border-radius:16px;
+
+    background:rgba(255,255,255,.04);
+
+    border:1px solid rgba(255,255,255,.06);
+
+}
+
+.fav-item-main{
+
+    flex:1;
+
+    min-width:0;
+
+}
+
+.fav-title{
+
+    font-size:14px;
+    font-weight:600;
+
+    line-height:1.4;
+
+    word-break:break-word;
+
+    cursor:pointer;
+
+}
+
+.fav-title:hover{
+
+    color:var(--primary);
+
+}
+
+.fav-meta{
+
+    display:flex;
+    align-items:center;
+
+    gap:6px;
+
+    margin-top:4px;
+
+    font-size:12px;
+
+    color:var(--text-secondary);
+
+    flex-wrap:wrap;
+
+}
+
+.fav-tracker{
+
+    color:var(--text);
+
+    font-weight:600;
+
+}
+
+.fav-seeders{
+
+    color:var(--green);
+
+    font-weight:600;
+
+}
+
+.fav-sep{
+
+    opacity:.5;
+
+}
+
+.fav-actions{
+
+    display:flex;
+
+    gap:6px;
+
+    flex-shrink:0;
+
+}
+
+.fav-actions .action-icon{
+
+    width:30px;
+    height:30px;
+
+}
+
+.action-icon.fav-remove{
+
+    background:rgba(239,68,68,.15);
+
+    color:#EF4444;
+
+}
+
+.action-icon.fav-remove:hover{
+
+    background:rgba(239,68,68,.28);
 
 }
 
@@ -2247,6 +2582,26 @@ body{
         padding:5px 10px;
 
         font-size:14px;
+
+    }
+
+    .header-right{
+
+        gap:8px;
+
+    }
+
+    .favorites-btn{
+
+        width:36px;
+        height:36px;
+
+    }
+
+    .favorites-btn svg{
+
+        width:17px;
+        height:17px;
 
     }
 

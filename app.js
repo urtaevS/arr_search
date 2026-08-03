@@ -14,6 +14,11 @@ class TorrentApp {
         this.searchButton = document.getElementById("searchButton");
         this.settingsOverlay = document.getElementById("settingsOverlay");
         this.settingsClose = document.getElementById("settingsClose");
+        this.favoritesBtn = document.getElementById("favoritesBtn");
+        this.favoritesCount = document.getElementById("favoritesCount");
+        this.favoritesOverlay = document.getElementById("favoritesOverlay");
+        this.favoritesClose = document.getElementById("favoritesClose");
+        this.favoritesList = document.getElementById("favoritesList");
         this.searchFab = document.getElementById("searchFab");
         this.searchPanel = document.querySelector(".search-panel");
         this.trackerDropdown = document.getElementById("trackerDropdown");
@@ -53,6 +58,8 @@ class TorrentApp {
         this.loadCategories();
 
         this.showEmptyStart();
+
+        this.updateFavoritesButtonCount();
 
     }
 
@@ -355,6 +362,32 @@ class TorrentApp {
         });
 
         // ==========================
+        // FAVORITES — кнопка в шапке + панель-шторка
+        // ==========================
+
+        this.favoritesBtn.addEventListener("click", () => {
+
+            this.openFavorites();
+
+        });
+
+        this.favoritesClose.addEventListener("click", () => {
+
+            this.closeFavorites();
+
+        });
+
+        this.favoritesOverlay.addEventListener("click", (e) => {
+
+            if (e.target === this.favoritesOverlay) {
+
+                this.closeFavorites();
+
+            }
+
+        });
+
+        // ==========================
         // TRACKER DROPDOWN — открывается при фокусе на поиске
         // ==========================
 
@@ -508,6 +541,8 @@ class TorrentApp {
         }
 
         this.closeSettings();
+
+        this.closeFavorites();
 
         this.closeTrackerDropdown();
 
@@ -736,6 +771,8 @@ class TorrentApp {
 
     openSettings() {
 
+        this.closeFavorites();
+
         this.updateSortUI();
 
         this.populateTrackerFilter();
@@ -918,6 +955,9 @@ class TorrentApp {
 
         let index = Math.floor(Math.random() * phrases.length);
 
+        // Кнопка избранного исчезает на время поиска
+        this.favoritesBtn.classList.add("hidden");
+
         this.results.innerHTML = `
 <section class="empty">
 <div class="empty-icon pulse">
@@ -945,6 +985,9 @@ ${phrases[index]}
             clearInterval(this.loaderInterval);
             this.loaderInterval = null;
         }
+
+        // Кнопка избранного возвращается после завершения поиска
+        this.favoritesBtn.classList.remove("hidden");
 
     }
 
@@ -1642,12 +1685,30 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         const card =
             node.querySelector(".card");
 
+        card.dataset.favid = this.favId(item) || "";
+
         // ==========================
         // Title
         // ==========================
 
         node.querySelector(".torrent-title").textContent =
             item.title;
+
+        // Клик по названию — копировать ссылку на страницу раздачи
+        const titleEl =
+            node.querySelector(".torrent-title");
+
+        titleEl.title = "Скопировать ссылку";
+
+        titleEl.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            this.copyToClipboard(
+                item.details || item.magnet || ""
+            );
+
+        });
 
         // ==========================
         // Tracker
@@ -1753,6 +1814,26 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         }
 
         // ==========================
+        // Избранное
+        // ==========================
+
+        const favBtn = node.querySelector(".fav");
+
+        const isFav = this.isFavorite(item);
+
+        favBtn.classList.toggle("active", isFav);
+
+        favBtn.title = isFav ? "Убрать из избранного" : "В избранное";
+
+        favBtn.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            this.toggleFavorite(item, favBtn);
+
+        });
+
+        // ==========================
         // Скачать torrent
         // ==========================
 
@@ -1785,6 +1866,234 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         });
 
         return node;
+
+    }
+
+    // =====================================================
+    // ИЗБРАННОЕ
+    // =====================================================
+
+    getFavorites() {
+
+        try {
+            return JSON.parse(localStorage.getItem("arr_favorites") || "[]");
+        } catch (_) {
+            return [];
+        }
+
+    }
+
+    saveFavorites(list) {
+
+        localStorage.setItem("arr_favorites", JSON.stringify(list));
+
+    }
+
+    favId(item) {
+
+        return item && (item.details || item.magnet || item.title) || "";
+
+    }
+
+    isFavorite(item) {
+
+        const id = this.favId(item);
+
+        if (!id) return false;
+
+        return this.getFavorites().some(f => this.favId(f) === id);
+
+    }
+
+    toggleFavorite(item, btn) {
+
+        const list = this.getFavorites();
+
+        const id = this.favId(item);
+
+        const idx = list.findIndex(f => this.favId(f) === id);
+
+        if (idx >= 0) {
+
+            list.splice(idx, 1);
+
+        } else if (id) {
+
+            list.unshift({ ...item, addedAt: Date.now() });
+
+        }
+
+        this.saveFavorites(list);
+
+        const isFav = this.isFavorite(item);
+
+        if (btn) {
+
+            btn.classList.toggle("active", isFav);
+
+            btn.title = isFav ? "Убрать из избранного" : "В избранное";
+
+        }
+
+        // Синхронизируем все карточки с тем же id на странице
+        if (id) {
+
+            document.querySelectorAll(
+                `.card[data-favid="${CSS.escape(id)}"]`
+            ).forEach(card => {
+
+                const b = card.querySelector(".action-icon.fav");
+
+                if (b) {
+
+                    b.classList.toggle("active", isFav);
+
+                    b.title = isFav ? "Убрать из избранного" : "В избранное";
+
+                }
+
+            });
+
+        }
+
+        if (this.favoritesOverlay.classList.contains("open")) {
+
+            this.populateFavoritesList();
+
+        }
+
+        this.updateFavoritesButtonCount();
+
+    }
+
+    updateFavoritesButtonCount() {
+
+        const count = this.getFavorites().length;
+
+        if (this.favoritesCount) {
+
+            this.favoritesCount.textContent = count > 0 ? count : "";
+
+            this.favoritesBtn.classList.toggle("has-fav", count > 0);
+
+        }
+
+    }
+
+    openFavorites() {
+
+        this.closeSettings();
+
+        this.populateFavoritesList();
+
+        this.favoritesOverlay.classList.add("open");
+
+        document.body.style.overflow = "hidden";
+
+    }
+
+    closeFavorites() {
+
+        this.favoritesOverlay.classList.remove("open");
+
+        document.body.style.overflow = "";
+
+    }
+
+    populateFavoritesList() {
+
+        const list = this.getFavorites();
+
+        if (!this.favoritesList) return;
+
+        if (list.length === 0) {
+
+            this.favoritesList.innerHTML = `
+<div class="favorites-empty">
+<div class="empty-icon">
+<i data-lucide="star"></i>
+</div>
+<p>Пока нет избранных тем.</p>
+<p class="favorites-empty-hint">Нажмите на звезду на карточке, чтобы добавить тему сюда.</p>
+</div>`;
+
+            this.createIcons();
+
+            return;
+
+        }
+
+        let html = "";
+
+        list.forEach(item => {
+
+            const favId = this.favId(item);
+
+            html += `
+<div class="favorite-item" data-favid="${this.escapeHtml(favId)}">
+<div class="fav-item-main">
+<div class="fav-title">${this.escapeHtml(item.title || "Без названия")}</div>
+<div class="fav-meta">
+<span class="fav-tracker">${this.escapeHtml(item.tracker || "")}</span>
+${item.size ? `<span class="fav-sep">·</span><span>${this.escapeHtml(item.size)}</span>` : ""}
+${item.seeders != null ? `<span class="fav-sep">·</span><span class="fav-seeders">▲ ${item.seeders}</span>` : ""}
+</div>
+</div>
+<div class="fav-actions">
+${item.magnet ? `<button class="action-icon magnet" title="Magnet-ссылка"><i data-lucide="magnet"></i></button>` : ""}
+${item.torrent ? `<button class="action-icon torrent" title="Скачать .torrent"><i data-lucide="download"></i></button>` : ""}
+${item.details ? `<button class="action-icon details" title="Страница раздачи"><i data-lucide="globe"></i></button>` : ""}
+<button class="action-icon fav-remove" title="Убрать из избранного"><i data-lucide="trash-2"></i></button>
+</div>
+</div>`;
+
+        });
+
+        this.favoritesList.innerHTML = html;
+
+        this.createIcons();
+
+        this.favoritesList.querySelectorAll(".favorite-item").forEach(row => {
+
+            const item = list.find(f => this.favId(f) === row.dataset.favid);
+
+            if (!item) return;
+
+            const magnetBtn = row.querySelector(".action-icon.magnet");
+
+            magnetBtn?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.copyToClipboard(item.magnet);
+            });
+
+            const torrentBtn = row.querySelector(".action-icon.torrent");
+
+            torrentBtn?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (item.torrent) window.open(item.torrent, "_blank");
+            });
+
+            const detailsBtn = row.querySelector(".action-icon.details");
+
+            detailsBtn?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                if (item.details) window.open(item.details, "_blank");
+            });
+
+            const removeBtn = row.querySelector(".action-icon.fav-remove");
+
+            removeBtn?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.toggleFavorite(item);
+            });
+
+            const titleEl = row.querySelector(".fav-title");
+
+            titleEl?.addEventListener("click", () => {
+                this.copyToClipboard(item.details || item.magnet || "");
+            });
+
+        });
 
     }
 

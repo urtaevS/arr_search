@@ -88,11 +88,27 @@
 
         </div>
 
-        <div class="header-count" id="resultCountRight">
+        <div class="header-right">
 
-            <i data-lucide="funnel"></i>
+            <button
+                id="favoritesBtn"
+                class="favorites-btn"
+                title="Избранное"
+                aria-label="Избранное">
 
-            <span class="count-number">0</span>
+                <i data-lucide="star"></i>
+
+                <span id="favoritesCount" class="favorites-count"></span>
+
+            </button>
+
+            <div class="header-count" id="resultCountRight">
+
+                <i data-lucide="funnel"></i>
+
+                <span class="count-number">0</span>
+
+            </div>
 
         </div>
 
@@ -161,6 +177,39 @@
                 </div>
 
                 <div id="settingsErrors" class="settings-errors"></div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
+    <!-- FAVORITES PANEL           -->
+    <!-- ========================= -->
+
+    <div id="favoritesOverlay" class="settings-overlay">
+
+        <div id="favoritesPanel" class="settings-panel">
+
+            <div class="settings-body">
+
+                <div class="settings-section">
+
+                    <div class="filter-header">
+                        <span class="filter-title visible">Избранное</span>
+                        <button id="favoritesClose" class="icon-btn">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+
+                    <div class="section-body">
+
+                        <div id="favoritesList" class="favorites-list"></div>
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -281,6 +330,8 @@
         <div class="card-bottom">
 
             <div class="card-actions">
+
+                <button class="action-icon fav" title="В избранное"><i data-lucide="star"></i></button>
 
                 <button class="action-icon magnet" title="Magnet-ссылка"><i data-lucide="magnet"></i></button>
 
