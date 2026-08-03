@@ -37,6 +37,7 @@ class TorrentApp {
         this.selectedCategories = new Set();
         this.categoryFilterOpen = false;
         this.inputFocused = false;
+        this.lastSearchErrors = [];
 
     }
 
@@ -537,7 +538,23 @@ class TorrentApp {
 
             if (!response.ok) {
 
-                throw new Error("HTTP " + response.status);
+                let msg = "HTTP " + response.status;
+
+                let errErrors = [];
+
+                try {
+
+                    const errBody = await response.json();
+
+                    if (errBody && errBody.message) msg = errBody.message;
+
+                    if (errBody && Array.isArray(errBody.errors)) errErrors = errBody.errors;
+
+                } catch { /* не JSON — оставляем HTTP статус */ }
+
+                this.lastSearchErrors = errErrors;
+
+                throw new Error(msg);
 
             }
 
@@ -551,6 +568,9 @@ class TorrentApp {
             console.error(error);
 
             this.showError(error.message);
+
+            // Показываем список трекеров, которые не ответили, даже при общей ошибке
+            this.renderSearchErrors();
 
         }
         finally {
@@ -569,7 +589,12 @@ class TorrentApp {
 
         this.stopLoader();
 
-        this.resultsData = data;
+        // Поддержка и массива (старый формат) и объекта { results, errors }
+        const isArray = Array.isArray(data);
+
+        this.resultsData = isArray ? data : ((data && data.results) || []);
+
+        this.lastSearchErrors = isArray ? [] : ((data && data.errors) || []);
 
         this.currentPage = 0;
 
@@ -688,6 +713,9 @@ class TorrentApp {
 
         }
 
+        // Уведомление о трекерах, которые не ответили
+        this.renderSearchErrors();
+
         // ==========================
         // PAGINATION CONTROLS
         // ==========================
@@ -711,6 +739,8 @@ class TorrentApp {
         this.updateSortUI();
 
         this.populateTrackerFilter();
+
+        this.populateSettingsErrors();
 
         this.settingsOverlay.classList.add("open");
 
@@ -951,6 +981,146 @@ ${phrases[index]}
 `;
 
         this.createIcons();
+
+    }
+
+    renderSearchErrors() {
+
+        const errors = this.lastSearchErrors || [];
+
+        // Большая плашка сверху больше не используется —
+        // индикатор ошибок виден на иконке счётчика, описания — в окне фильтров
+        this.results.querySelectorAll(".search-errors").forEach(el => el.remove());
+
+        // Оранжевая окаймовка на иконке счётчика результатов при ошибках
+        this.counter.classList.toggle("has-errors", errors.length > 0);
+        document.querySelector(".header").classList.toggle("has-errors", errors.length > 0);
+
+        // Описания ошибок — аккуратно внизу окна фильтров
+        this.populateSettingsErrors();
+
+        // Всплывающее уведомление сверху (дубль ошибок) — исчезает через 15с или по клику
+        if (errors.length > 0) {
+            this.showErrorsToast();
+        } else {
+            this.hideErrorsToast();
+        }
+
+    }
+
+    showErrorsToast() {
+
+        const errors = this.lastSearchErrors || [];
+
+        if (errors.length === 0) return;
+
+        this.hideErrorsToast();
+
+        const toast = document.createElement("div");
+
+        toast.className = "errors-toast";
+
+        toast.setAttribute("role", "alert");
+
+        const head = document.createElement("div");
+
+        head.className = "errors-toast-head";
+
+        head.innerHTML = `<i data-lucide="triangle-alert"></i><span>${errors.length === 1 ? "1 трекер не ответил" : "Некоторые трекеры не ответили"}</span><button class="errors-toast-close" aria-label="Закрыть"><i data-lucide="x"></i></button>`;
+
+        toast.appendChild(head);
+
+        const ul = document.createElement("ul");
+
+        errors.forEach(e => {
+
+            const li = document.createElement("li");
+
+            li.innerHTML = `<b>${this.escapeHtml(e.indexer || "Трекер")}</b> — ${this.escapeHtml(this.shortErrorMessage(e.message))}`;
+
+            ul.appendChild(li);
+
+        });
+
+        toast.appendChild(ul);
+
+        // Клик по уведомлению или крестику — закрыть
+        toast.addEventListener("click", () => this.hideErrorsToast());
+
+        document.body.appendChild(toast);
+
+        this.createIcons();
+
+        requestAnimationFrame(() => toast.classList.add("show"));
+
+        // Автоскрытие через 15 секунд
+        this._errorsToastTimer = setTimeout(() => this.hideErrorsToast(), 15000);
+
+    }
+
+    hideErrorsToast() {
+
+        const toast = document.querySelector(".errors-toast");
+
+        if (toast) toast.remove();
+
+        if (this._errorsToastTimer) {
+
+            clearTimeout(this._errorsToastTimer);
+
+            this._errorsToastTimer = null;
+
+        }
+
+    }
+
+    populateSettingsErrors() {
+
+        const container = document.getElementById("settingsErrors");
+
+        if (!container) return;
+
+        const errors = this.lastSearchErrors || [];
+
+        container.innerHTML = "";
+
+        if (errors.length === 0) return;
+
+        const head = document.createElement("div");
+
+        head.className = "settings-errors-head";
+
+        head.innerHTML = `<i data-lucide="triangle-alert"></i><span>${errors.length === 1 ? "1 трекер не ответил" : "Некоторые трекеры не ответили"}</span>`;
+
+        container.appendChild(head);
+
+        const ul = document.createElement("ul");
+
+        errors.forEach(e => {
+
+            const li = document.createElement("li");
+
+            li.innerHTML = `<b>${this.escapeHtml(e.indexer || "Трекер")}</b> — ${this.escapeHtml(this.shortErrorMessage(e.message))}`;
+
+            ul.appendChild(li);
+
+        });
+
+        container.appendChild(ul);
+
+        this.createIcons();
+
+    }
+
+    shortErrorMessage(msg) {
+
+        // Убираем ведущий префикс: "404 — страница не найдена" -> "страница не найдена",
+        // "таймаут — сервер не ответил" -> "сервер не ответил"
+        const s = String(msg || "").trim();
+
+        const m = s.match(/^[^—]+—\s*(.+)$/);
+
+        return m ? m[1].trim() : s;
 
     }
 

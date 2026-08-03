@@ -127,6 +127,94 @@ function normalizeProwlarr(item) {
     };
 }
 
+// =============================
+// SEARCH ERROR HELPERS
+// =============================
+
+let prowlarrIndexerMap = new Map(); // id -> name
+
+function setProwlarrIndexerMap(list) {
+    prowlarrIndexerMap = new Map();
+    for (const item of list) {
+        if (item && item.id != null) {
+            prowlarrIndexerMap.set(String(item.id), item.name || item.implementationName || String(item.id));
+        }
+    }
+}
+
+function summarizeError(err, fallback = "Неизвестная ошибка") {
+    let raw = "";
+    if (typeof err === "string") {
+        raw = err;
+    } else if (err && err.response) {
+        const st = err.response.status || "";
+        const dataMsg = err.response.data?.message || err.response.data?.error || err.response.data?.Message || "";
+        raw = dataMsg ? String(dataMsg) : `HTTP ${st}`;
+    } else if (err && err.message) {
+        raw = err.message;
+    } else if (err && err.error) {
+        raw = err.error;
+    }
+    raw = String(raw).replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+    if (!raw) return fallback;
+
+    const low = raw.toLowerCase();
+    if (/404|not ?found|не найден/i.test(raw)) return "404 — страница не найдена";
+    if (/unavailable|недоступ|offline|не работает|не отвечает/i.test(low)) return "сервер недоступен";
+    if (/timed? ?out|timeout|превышен|истек/i.test(low)) return "таймаут — сервер не ответил";
+    if (/401|unauthorized/i.test(low)) return "401 — нет доступа";
+    if (/403|forbidden/i.test(low)) return "403 — доступ запрещён";
+    if (/429|rate ?limit/i.test(low)) return "429 — слишком много запросов";
+    if (raw.length > 150) raw = raw.slice(0, 150) + "…";
+    return raw || fallback;
+}
+
+function parseIndexerErrors(raw) {
+    if (typeof raw !== "string") return [];
+    const out = [];
+    const seen = new Set();
+    const add = (indexer, message) => {
+        const key = indexer + "|" + message;
+        if (seen.has(key)) return;
+        seen.add(key);
+        out.push({ indexer, message });
+    };
+
+    // "HTTP Error - Res: HTTP/2.0 [GET] https://megapeer.vip/...: 404.NotFound (...)"
+    const re1 = /\[GET\]\s+(\S+?):\s+(\d{3}(?:\.\w+)?)/g;
+    let m;
+    while ((m = re1.exec(raw)) !== null) {
+        let host = m[1];
+        try { host = new URL(m[1]).hostname.replace(/^www\./, ""); } catch { /* keep */ }
+        add(host, m[2]);
+    }
+
+    // "RuTracker.org server is currently unavailable. ... Http request timed out"
+    // Сканируем каждый домен и ищем ключевое слово ошибки до следующего домена,
+    // чтобы не «приписывать» чужую ошибку соседнему трекеру.
+    const domainRe = /([A-Za-z0-9][A-Za-z0-9.-]*(?:\.(?:org|ru|com|net|vip|me|is|info|su|cc|tv|ws|xyz|biz|name|site|app|top|online)))\b/gi;
+    const kwRe = /unavailable|недоступн|timed ?out|timeout|ошибк/gi;
+    const domains = [];
+    let dm;
+    while ((dm = domainRe.exec(raw)) !== null) {
+        domains.push({ host: dm[1].replace(/^www\./, ""), pos: dm.index });
+    }
+    for (let i = 0; i < domains.length; i++) {
+        const d = domains[i];
+        const end = (i + 1 < domains.length) ? domains[i + 1].pos : raw.length;
+        const chunk = raw.slice(d.pos, end);
+        const kw = chunk.match(kwRe);
+        if (kw) {
+            let message = "ошибка";
+            if (/unavailable|недоступн/i.test(kw[0])) message = "сервер недоступен";
+            else if (/timed ?out|timeout/i.test(kw[0])) message = "таймаут — сервер не ответил";
+            add(d.host, message);
+        }
+    }
+
+    return out;
+}
+
 async function searchSingleIndexer(query, indexerId, categoryList = []) {
 
     const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
@@ -165,6 +253,7 @@ async function warmupProwlarr() {
 
         if (Array.isArray(idxData)) {
             console.log("[warmup] Prowlarr: получено " + idxData.length + " индексаторов");
+            setProwlarrIndexerMap(idxData);
         }
 
         // 2. Лёгкий тестовый поисковый запрос для прогрева кэша
@@ -269,6 +358,8 @@ app.get("/api/indexers", async (req, res) => {
                         icon: ""
                     }))
                 : [];
+
+            setProwlarrIndexerMap(data);
 
             return res.json(indexers);
 
@@ -440,10 +531,22 @@ app.get("/api/search", async (req, res) => {
 
     const trackerList = trackers ? trackers.split(",").map(s => s.trim()).filter(Boolean) : [];
 
+    // Собираем ошибки трекеров, чтобы показать пользователю, что именно не сработало
+    const searchErrors = [];
+
+    const addError = (indexer, err) => {
+        const message = summarizeError(err);
+        const exists = searchErrors.some(e => e.indexer === indexer && e.message === message);
+        if (!exists) {
+            searchErrors.push({ indexer, message });
+        }
+    };
+
     // 1. Если выбран Prowlarr (или Prowlarr настроен и не выбран Jackett)
     if (backend !== "jackett" && PROWLARR_URL && PROWLARR_API_KEY) {
 
         // Шаг 1 — Быстрый массовый запрос (fast path)
+        let fastResults = null;
         try {
 
             const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
@@ -470,6 +573,12 @@ app.get("/api/search", async (req, res) => {
 
                 console.log("[search] Prowlarr вернул пустой/ошибку, повтор через 2с...");
 
+                if (rawData && (rawData.message || rawData.error)) {
+                    const parsed = parseIndexerErrors(String(rawData.message || rawData.error));
+                    if (parsed.length > 0) parsed.forEach(e => addError(e.indexer, e.message));
+                    else addError("Prowlarr", rawData.message || rawData.error);
+                }
+
                 await new Promise(r => setTimeout(r, 2000));
 
                 const retryResponse = await axios.get(searchUrl.toString(), { timeout: 60000 });
@@ -483,18 +592,16 @@ app.get("/api/search", async (req, res) => {
                         .sort((a, b) => b.seeders - a.seeders);
 
                     if (results.length > 0) {
-                        return res.json(results);
+                        fastResults = results;
                     }
 
                 }
 
             } else {
 
-                const results = (Array.isArray(rawData) ? rawData : [])
+                fastResults = (Array.isArray(rawData) ? rawData : [])
                     .map(normalizeProwlarr)
                     .sort((a, b) => b.seeders - a.seeders);
-
-                return res.json(results);
 
             }
 
@@ -504,6 +611,15 @@ app.get("/api/search", async (req, res) => {
             console.error(error.message);
             console.error("===========================\n");
 
+            const rawErr = error?.response?.data?.message || error?.response?.data?.error || error?.message || "";
+            const parsed = parseIndexerErrors(String(rawErr));
+            if (parsed.length > 0) parsed.forEach(e => addError(e.indexer, e.message));
+            else addError("Prowlarr", error);
+
+        }
+
+        if (fastResults) {
+            return res.json({ results: fastResults, errors: searchErrors });
         }
 
         // Шаг 2 — Fault-tolerant fallback: индивидуальные запросы к каждому трекеру
@@ -518,21 +634,23 @@ app.get("/api/search", async (req, res) => {
 
                 const promises = trackerList.map(id =>
                     searchSingleIndexer(query, id, categoryList)
+                        .catch(err => {
+                            const name = prowlarrIndexerMap.get(String(id)) || id;
+                            console.warn("[search] Запрос к трекеру не удался:", name, "-", err?.message || "неизвестная ошибка");
+                            addError(name, err);
+                            return [];
+                        })
                 );
 
-                const settled = await Promise.allSettled(promises);
+                const settled = await Promise.all(promises);
 
                 let allResults = [];
 
-                for (const result of settled) {
+                for (const arr of settled) {
 
-                    if (result.status === "fulfilled" && result.value.length > 0) {
+                    if (Array.isArray(arr) && arr.length > 0) {
 
-                        allResults.push(...result.value);
-
-                    } else if (result.status === "rejected") {
-
-                        console.warn("[search] Запрос к трекеру не удался:", result.reason?.message || "неизвестная ошибка");
+                        allResults.push(...arr);
 
                     }
 
@@ -542,13 +660,15 @@ app.get("/api/search", async (req, res) => {
 
                     allResults.sort((a, b) => b.seeders - a.seeders);
 
-                    return res.json(allResults);
+                    return res.json({ results: allResults, errors: searchErrors });
 
                 }
 
             } catch (fallbackError) {
 
                 console.error("[search] Ошибка fallback:", fallbackError.message);
+
+                addError("Prowlarr", fallbackError);
 
             }
 
@@ -558,7 +678,7 @@ app.get("/api/search", async (req, res) => {
 
     // Если был явно выбран Prowlarr — не падаем на Jackett
     if (backend === "prowlarr") {
-        return res.json([]);
+        return res.json({ results: [], errors: searchErrors });
     }
 
     // 2. Fallback на Jackett
@@ -610,7 +730,7 @@ app.get("/api/search", async (req, res) => {
             .map(normalize)
             .sort((a, b) => b.seeders - a.seeders);
 
-        res.json(results);
+        res.json({ results, errors: searchErrors });
 
     }
     catch (error) {
@@ -630,9 +750,12 @@ app.get("/api/search", async (req, res) => {
 
         console.error("=========================\n");
 
+        const errMsg = summarizeError(error, "Jackett не ответил");
+
         res.status(500).json({
             error: true,
-            message: "Jackett request failed"
+            message: errMsg,
+            errors: searchErrors
         });
 
     }
