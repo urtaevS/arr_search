@@ -6,6 +6,8 @@ import http from "http";
 import https from "https";
 import { fileURLToPath } from "url";
 import os from "os";
+import fs from "fs";
+import { promises as fsp } from "fs";
 
 dotenv.config();
 
@@ -22,11 +24,17 @@ const PROWLARR_API_KEY = process.env.PROWLARR_API_KEY;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Избранное хранится в JSON-файле (смонтировано через DATA_DIR в Docker)
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+const FAVORITES_FILE = path.join(DATA_DIR, "favorites.json");
+
 // =============================
 // STATIC FILES
 // =============================
 
 app.use(express.static(__dirname));
+
+app.use(express.json({ limit: "1mb" }));
 
 // =============================
 // FORMAT SIZE
@@ -764,6 +772,89 @@ app.get("/api/search", async (req, res) => {
 
 
 // =============================
+// FAVORITES (server-side storage)
+// =============================
+
+async function readFavoritesFile() {
+
+    try {
+
+        const raw = await fsp.readFile(FAVORITES_FILE, "utf8");
+
+        const parsed = JSON.parse(raw);
+
+        return Array.isArray(parsed) ? parsed : [];
+
+    } catch (err) {
+
+        if (err.code === "ENOENT") return [];
+
+        console.error("readFavoritesFile error:", err);
+
+        return [];
+
+    }
+
+}
+
+async function writeFavoritesFile(list) {
+
+    await fsp.mkdir(path.dirname(FAVORITES_FILE), { recursive: true });
+
+    const tmp = `${FAVORITES_FILE}.tmp`;
+
+    await fsp.writeFile(tmp, JSON.stringify(list, null, 2), "utf8");
+
+    await fsp.rename(tmp, FAVORITES_FILE);
+
+}
+
+app.get("/api/favorites", async (req, res) => {
+
+    try {
+
+        const favorites = await readFavoritesFile();
+
+        res.json({ favorites });
+
+    } catch (err) {
+
+        console.error("GET /api/favorites error:", err);
+
+        res.status(500).json({ error: true, message: "Ошибка чтения избранного" });
+
+    }
+
+});
+
+app.post("/api/favorites", async (req, res) => {
+
+    try {
+
+        const list = req.body && req.body.favorites;
+
+        if (!Array.isArray(list)) {
+
+            return res.status(400).json({ error: true, message: "favorites должен быть массивом" });
+
+        }
+
+        await writeFavoritesFile(list);
+
+        res.json({ ok: true, count: list.length });
+
+    } catch (err) {
+
+        console.error("POST /api/favorites error:", err);
+
+        res.status(500).json({ error: true, message: "Ошибка сохранения избранного" });
+
+    }
+
+});
+
+
+// =============================
 // START SERVER
 // =============================
 
@@ -776,6 +867,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(` Local: http://localhost:${PORT}`);
     console.log(` Search: http://localhost:${PORT}/api/search?q=test`);
     console.log(` Indexers: http://localhost:${PORT}/api/indexers`);
+    console.log(` Favorites: ${FAVORITES_FILE}`);
 
     const interfaces = os.networkInterfaces();
 

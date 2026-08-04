@@ -8,4 +8,7 @@ services:
       - .env
     volumes:
       - ./.env:/app/.env:ro
+      # Избранное хранится в ./data/favorites.json — bind-mount, чтобы данные
+      # переживали пересоздание контейнера и были доступны для ручной правки.
+      - ./data:/app/data
     restart: unless-stopped

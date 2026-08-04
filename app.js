@@ -44,6 +44,8 @@ class TorrentApp {
         this.inputFocused = false;
         this.lastSearchErrors = [];
 
+        this._favorites = this.readLocalFavorites();
+
     }
 
     init() {
@@ -60,6 +62,8 @@ class TorrentApp {
         this.showEmptyStart();
 
         this.updateFavoritesButtonCount();
+
+        this.loadFavoritesFromServer();
 
     }
 
@@ -1875,6 +1879,12 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     getFavorites() {
 
+        return Array.isArray(this._favorites) ? this._favorites : [];
+
+    }
+
+    readLocalFavorites() {
+
         try {
             return JSON.parse(localStorage.getItem("arr_favorites") || "[]");
         } catch (_) {
@@ -1885,7 +1895,101 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     saveFavorites(list) {
 
-        localStorage.setItem("arr_favorites", JSON.stringify(list));
+        this._favorites = Array.isArray(list) ? list : [];
+
+        try {
+            localStorage.setItem("arr_favorites", JSON.stringify(this._favorites));
+        } catch (_) {
+            // ignore quota errors
+        }
+
+        this.persistFavorites();
+
+    }
+
+    persistFavorites() {
+
+        const payload = { favorites: this.getFavorites() };
+
+        this._persistChain = (this._persistChain || Promise.resolve()).then(async () => {
+
+            try {
+
+                await fetch("/api/favorites", {
+
+                    method: "POST",
+
+                    headers: { "Content-Type": "application/json" },
+
+                    body: JSON.stringify(payload)
+
+                });
+
+            } catch (_) {
+
+                // Сервер недоступен — избранное остаётся в localStorage-кэше
+            }
+
+        });
+
+        return this._persistChain;
+
+    }
+
+    async loadFavoritesFromServer() {
+
+        try {
+
+            const res = await fetch("/api/favorites");
+
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            const serverList = Array.isArray(data.favorites) ? data.favorites : [];
+
+            if (serverList.length === 0) {
+
+                // Одноразовая миграция: если на сервере пусто, а в localStorage
+                // есть избранное — заливаем его на сервер.
+                const localList = this.readLocalFavorites();
+
+                if (localList.length > 0) {
+
+                    this._favorites = localList;
+
+                    this.persistFavorites();
+
+                }
+
+            } else {
+
+                this._favorites = serverList;
+
+                try {
+                    localStorage.setItem("arr_favorites", JSON.stringify(serverList));
+                } catch (_) {
+                    // ignore
+                }
+
+            }
+
+            this.updateFavoritesButtonCount();
+
+            if (this.favoritesOverlay.classList.contains("open")) {
+
+                this.populateFavoritesList();
+
+            }
+
+        } catch (_) {
+
+            // Сервер недоступен — используем локальный кэш
+            this._favorites = this.readLocalFavorites();
+
+            this.updateFavoritesButtonCount();
+
+        }
 
     }
 
