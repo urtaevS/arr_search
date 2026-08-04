@@ -273,14 +273,6 @@ body{
 
     color:#FBBF24;
 
-    background:rgba(251,191,36,.16);
-
-}
-
-.favorites-btn.has-fav svg{
-
-    fill:currentColor;
-
 }
 
 /* ---------- FAVORITES PANEL (full screen, slides from top) ---------- */
