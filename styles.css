@@ -269,38 +269,17 @@ body{
 
 }
 
-.favorites-count{
+.favorites-btn.has-fav{
 
-    position:absolute;
+    color:#FBBF24;
 
-    top:-3px;
-    right:-3px;
-
-    min-width:16px;
-    height:16px;
-
-    padding:0 4px;
-
-    border-radius:8px;
-
-    background:#F59E0B;
-
-    color:#0B0E14;
-
-    font-size:10px;
-    font-weight:800;
-
-    display:flex;
-    align-items:center;
-    justify-content:center;
-
-    line-height:1;
+    background:rgba(251,191,36,.16);
 
 }
 
-.favorites-count.hidden{
+.favorites-btn.has-fav svg{
 
-    display:none;
+    fill:currentColor;
 
 }
 

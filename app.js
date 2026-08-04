@@ -15,7 +15,6 @@ class TorrentApp {
         this.settingsOverlay = document.getElementById("settingsOverlay");
         this.settingsClose = document.getElementById("settingsClose");
         this.favoritesBtn = document.getElementById("favoritesBtn");
-        this.favoritesCount = document.getElementById("favoritesCount");
         this.favoritesOverlay = document.getElementById("favoritesOverlay");
         this.favoritesBackdrop = document.getElementById("favoritesBackdrop");
         this.favoritesClose = document.getElementById("favoritesClose");
@@ -1969,19 +1968,9 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     updateFavoritesButtonCount() {
 
-        const count = this.getFavorites().length;
+        const show = this.getFavorites().length > 0;
 
-        if (this.favoritesCount) {
-
-            const show = count > 0;
-
-            this.favoritesCount.textContent = show ? count : "";
-
-            this.favoritesCount.classList.toggle("hidden", !show);
-
-            this.favoritesBtn.classList.toggle("has-fav", show);
-
-        }
+        this.favoritesBtn.classList.toggle("has-fav", show);
 
     }
 
