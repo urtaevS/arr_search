@@ -1972,9 +1972,13 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         if (this.favoritesCount) {
 
-            this.favoritesCount.textContent = count > 0 ? count : "";
+            const show = count > 0;
 
-            this.favoritesBtn.classList.toggle("has-fav", count > 0);
+            this.favoritesCount.textContent = show ? count : "";
+
+            this.favoritesCount.classList.toggle("hidden", !show);
+
+            this.favoritesBtn.classList.toggle("has-fav", show);
 
         }
 

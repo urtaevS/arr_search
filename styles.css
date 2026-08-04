@@ -217,14 +217,10 @@ body{
     align-items:center;
     justify-content:center;
 
-    width:40px;
-    height:40px;
-
-    padding:0;
-    margin:0;
+    padding:6px 10px;
 
     border:none;
-    border-radius:12px;
+    border-radius:10px;
 
     background:rgba(255,255,255,.06);
 
@@ -232,7 +228,9 @@ body{
 
     cursor:pointer;
 
-    transition:color .2s, background .2s, transform .2s;
+    transition:all .2s;
+
+    font-family:inherit;
 
     outline:none;
 
@@ -248,16 +246,16 @@ body{
 
 .favorites-btn svg{
 
-    width:18px;
-    height:18px;
+    width:16px;
+    height:16px;
 
 }
 
 .favorites-btn:hover{
 
-    color:#FBBF24;
+    background:rgba(255,255,255,.10);
 
-    background:rgba(251,191,36,.12);
+    color:#FBBF24;
 
 }
 
@@ -297,6 +295,39 @@ body{
     justify-content:center;
 
     line-height:1;
+
+}
+
+.favorites-count.hidden{
+
+    display:none;
+
+}
+
+/* ---------- FAVORITES PANEL (full screen, not side drawer) ---------- */
+
+#favoritesPanel{
+
+    left:0;
+
+    width:100vw;
+    max-width:none;
+
+    border-radius:0;
+
+    border-left:none;
+
+    border-top:1px solid rgba(255,255,255,.06);
+
+    transform:translateY(100%);
+
+    transition:transform .35s cubic-bezier(.32,.72,0,1);
+
+}
+
+#favoritesOverlay.open #favoritesPanel{
+
+    transform:translateY(0);
 
 }
 
@@ -2593,15 +2624,14 @@ body{
 
     .favorites-btn{
 
-        width:36px;
-        height:36px;
+        padding:5px 8px;
 
     }
 
     .favorites-btn svg{
 
-        width:17px;
-        height:17px;
+        width:15px;
+        height:15px;
 
     }
 
