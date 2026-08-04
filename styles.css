@@ -306,6 +306,39 @@ body{
 
 /* ---------- FAVORITES PANEL (full screen, slides from top) ---------- */
 
+/* Decouple backdrop from panel: overlay keeps opacity:1 (never fades the
+   panel), the dim backdrop fades separately, and the panel slides cleanly
+   up on close (mirror of open). */
+
+#favoritesOverlay{
+
+    background:transparent;
+
+    opacity:1;
+
+    transition:none;
+
+}
+
+#favoritesBackdrop{
+
+    position:fixed;
+    inset:0;
+
+    background:rgba(0,0,0,.5);
+
+    opacity:0;
+
+    transition:opacity .3s ease;
+
+}
+
+#favoritesOverlay.open #favoritesBackdrop{
+
+    opacity:1;
+
+}
+
 #favoritesPanel{
 
     left:0;

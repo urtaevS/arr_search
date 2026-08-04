@@ -17,6 +17,7 @@ class TorrentApp {
         this.favoritesBtn = document.getElementById("favoritesBtn");
         this.favoritesCount = document.getElementById("favoritesCount");
         this.favoritesOverlay = document.getElementById("favoritesOverlay");
+        this.favoritesBackdrop = document.getElementById("favoritesBackdrop");
         this.favoritesClose = document.getElementById("favoritesClose");
         this.favoritesList = document.getElementById("favoritesList");
         this.searchFab = document.getElementById("searchFab");
@@ -379,7 +380,7 @@ class TorrentApp {
 
         this.favoritesOverlay.addEventListener("click", (e) => {
 
-            if (e.target === this.favoritesOverlay) {
+            if (e.target === this.favoritesOverlay || e.target === this.favoritesBackdrop) {
 
                 this.closeFavorites();
 
