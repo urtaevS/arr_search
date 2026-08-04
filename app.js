@@ -2036,7 +2036,10 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
             html += `
 <div class="favorite-item" data-favid="${this.escapeHtml(favId)}">
 <div class="fav-item-main">
+<div class="fav-title-row">
 <div class="fav-title">${this.escapeHtml(item.title || "Без названия")}</div>
+<button class="action-icon fav-edit" title="Редактировать заголовок"><i data-lucide="pencil"></i></button>
+</div>
 <div class="fav-meta">
 <span class="fav-tracker">${this.escapeHtml(item.tracker || "")}</span>
 ${item.size ? `<span class="fav-sep">·</span><span>${this.escapeHtml(item.size)}</span>` : ""}
@@ -2097,7 +2100,114 @@ ${item.details ? `<button class="action-icon details" title="Страница р
                 this.copyToClipboard(item.details || item.magnet || "");
             });
 
+            const editBtn = row.querySelector(".action-icon.fav-edit");
+
+            editBtn?.addEventListener("click", (e) => {
+                e.stopPropagation();
+                this.editFavoriteTitle(row, item);
+            });
+
         });
+
+    }
+
+    editFavoriteTitle(row, item) {
+
+        const titleRow = row.querySelector(".fav-title-row");
+
+        if (!titleRow) return;
+
+        titleRow.innerHTML = "";
+
+        const input = document.createElement("input");
+
+        input.type = "text";
+
+        input.className = "fav-edit-input";
+
+        input.value = item.title || "";
+
+        input.maxLength = 200;
+
+        input.spellcheck = false;
+
+        titleRow.appendChild(input);
+
+        const saveBtn = document.createElement("button");
+
+        saveBtn.type = "button";
+
+        saveBtn.className = "action-icon fav-edit-save";
+
+        saveBtn.title = "Сохранить заголовок";
+
+        saveBtn.innerHTML = '<i data-lucide="check"></i>';
+
+        titleRow.appendChild(saveBtn);
+
+        this.createIcons();
+
+        input.focus();
+
+        input.select();
+
+        let done = false;
+
+        const finish = (save) => {
+
+            if (done) return;
+
+            done = true;
+
+            if (save) {
+
+                const val = input.value.trim();
+
+                const list = this.getFavorites();
+
+                const idx = list.findIndex(f => this.favId(f) === this.favId(item));
+
+                if (idx !== -1) {
+
+                    list[idx].title = val || item.title || "Без названия";
+
+                    this.saveFavorites(list);
+
+                }
+
+            }
+
+            this.populateFavoritesList();
+
+        };
+
+        saveBtn.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            finish(true);
+
+        });
+
+        input.addEventListener("keydown", (e) => {
+
+            if (e.key === "Enter") {
+
+                e.preventDefault();
+
+                finish(true);
+
+            } else if (e.key === "Escape") {
+
+                e.preventDefault();
+
+                finish(false);
+
+            }
+
+        });
+
+        input.addEventListener("blur", () => finish(true));
 
     }
 
