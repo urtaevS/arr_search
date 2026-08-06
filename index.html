@@ -90,16 +90,6 @@
 
         <div class="header-right">
 
-            <button
-                id="favoritesBtn"
-                class="favorites-btn"
-                title="Избранное"
-                aria-label="Избранное">
-
-                <i data-lucide="star"></i>
-
-            </button>
-
             <div class="header-count" id="resultCountRight">
 
                 <i data-lucide="funnel"></i>
@@ -221,7 +211,7 @@
     <!-- SEARCH                    -->
     <!-- ========================= -->
 
-    <footer class="search-panel">
+    <footer class="search-panel dock-hidden">
 
         <div class="search-wrapper">
 
@@ -230,7 +220,6 @@
                 <input
                     id="searchInput"
                     type="search"
-                    placeholder="Начни отсюда"
                     autocomplete="off"
                     spellcheck="false"
                     name="q"
@@ -264,6 +253,8 @@
 
             </div>
 
+            <div id="trackerDropdown" class="tracker-dropdown"></div>
+
         </div>
 
     </footer>
@@ -281,7 +272,43 @@
 
     </button>
 
-    <div id="trackerDropdown" class="tracker-dropdown"></div>
+    <!-- ========================= -->
+    <!-- BOTTOM DOCK               -->
+    <!-- ========================= -->
+
+    <nav id="dock" class="dock" aria-label="Навигация">
+
+        <button
+            id="dockHistory"
+            class="dock-btn"
+            title="История"
+            aria-label="История">
+
+            <i data-lucide="history"></i>
+
+        </button>
+
+        <button
+            id="dockSearch"
+            class="dock-btn"
+            title="Поиск"
+            aria-label="Поиск">
+
+            <i data-lucide="search"></i>
+
+        </button>
+
+        <button
+            id="dockFavorites"
+            class="dock-btn"
+            title="Избранное"
+            aria-label="Избранное">
+
+            <i data-lucide="star"></i>
+
+        </button>
+
+    </nav>
 
 </div>
 

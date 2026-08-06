@@ -14,7 +14,6 @@ class TorrentApp {
         this.searchButton = document.getElementById("searchButton");
         this.settingsOverlay = document.getElementById("settingsOverlay");
         this.settingsClose = document.getElementById("settingsClose");
-        this.favoritesBtn = document.getElementById("favoritesBtn");
         this.favoritesOverlay = document.getElementById("favoritesOverlay");
         this.favoritesBackdrop = document.getElementById("favoritesBackdrop");
         this.favoritesClose = document.getElementById("favoritesClose");
@@ -22,6 +21,10 @@ class TorrentApp {
         this.searchFab = document.getElementById("searchFab");
         this.searchPanel = document.querySelector(".search-panel");
         this.trackerDropdown = document.getElementById("trackerDropdown");
+        this.dock = document.getElementById("dock");
+        this.dockHistory = document.getElementById("dockHistory");
+        this.dockSearch = document.getElementById("dockSearch");
+        this.dockFavorites = document.getElementById("dockFavorites");
 
         this.isSearching = false;
         this.activeBackend = "prowlarr";
@@ -158,11 +161,7 @@ class TorrentApp {
         this.trackerDropdownOpen = true;
         this.categoryFilterOpen = true;
 
-        // Позиционируем так же, как окно трекеров
-        const box = this.searchPanel.querySelector(".search-box").getBoundingClientRect();
-        this.trackerDropdown.style.left = box.left + "px";
-        this.trackerDropdown.style.width = box.width + "px";
-        this.trackerDropdown.style.bottom = (window.innerHeight - box.top + 8) + "px";
+        // Позиция — из CSS (absolute внутри .search-wrapper), как у окна трекеров
         this.trackerDropdown.classList.add("open", "categories-mode");
 
         // Заголовок и подсказка (по умолчанию — все категории)
@@ -366,14 +365,8 @@ class TorrentApp {
         });
 
         // ==========================
-        // FAVORITES — кнопка в шапке + панель-шторка
+        // FAVORITES — панель-шторка
         // ==========================
-
-        this.favoritesBtn.addEventListener("click", () => {
-
-            this.openFavorites();
-
-        });
 
         this.favoritesClose.addEventListener("click", () => {
 
@@ -398,6 +391,8 @@ class TorrentApp {
         this.input.addEventListener("focus", () => {
             this.inputFocused = true;
             this.showCategoryBtn();
+            // Дропдаун absolute внутри .search-wrapper — открываем сразу,
+            // гонки позиций с анимацией панели больше нет.
             if (!this.trackerDropdownOpen) {
                 this.openTrackerDropdown();
             }
@@ -430,9 +425,17 @@ class TorrentApp {
 
         document.addEventListener("keydown", (e) => {
 
-            if (e.key === "Escape" && this.trackerDropdownOpen) {
+            if (e.key === "Escape") {
 
-                this.closeTrackerDropdown();
+                if (this.trackerDropdownOpen) {
+
+                    this.closeTrackerDropdown();
+
+                } else if (!this.searchPanel.classList.contains("dock-hidden")) {
+
+                    this.hideSearchPanel();
+
+                }
 
             }
 
@@ -502,6 +505,51 @@ class TorrentApp {
         });
 
         // ==========================
+        // BOTTOM DOCK
+        // ==========================
+
+        this.dockSearch.addEventListener("click", (e) => {
+
+            // Не даём событию дойти до document-обработчика, который
+            // закрывает дропдаун трекеров сразу после открытия.
+            e.stopPropagation();
+
+            if (this.searchPanel.classList.contains("dock-hidden")) {
+
+                this.showSearchPanel();
+
+            } else {
+
+                this.hideSearchPanel();
+
+            }
+
+        });
+
+        this.dockFavorites.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            // Повторный клик по активной кнопке закрывает окно избранного
+            if (this.favoritesOverlay.classList.contains("open")) {
+
+                this.closeFavorites();
+
+            } else {
+
+                this.openFavorites();
+
+            }
+
+        });
+
+        // История — заглушка (бездействует)
+        this.dockHistory.addEventListener("click", (e) => {
+            e.stopPropagation();
+            // TODO: история поиска
+        });
+
+        // ==========================
         // SCROLLBAR AUTO-HIDE + SEARCH PANEL HIDE ON SCROLL DOWN
         // ==========================
 
@@ -512,6 +560,9 @@ class TorrentApp {
             scrollTimeout = setTimeout(() => {
                 this.results.classList.remove("scrolling");
             }, 300);
+
+            // Если окно поиска скрыто (док-режим) — не трогаем его transform
+            if (this.searchPanel.classList.contains("dock-hidden")) return;
 
             // Hide search panel when scrolling near the bottom, show when scrolling up
             const maxScroll = this.results.scrollHeight - this.results.clientHeight;
@@ -525,6 +576,47 @@ class TorrentApp {
                 this.searchPanel.style.transform = "translateY(0)";
             }
         });
+
+    }
+
+    showSearchPanel() {
+
+        this.searchPanel.classList.remove("dock-hidden");
+
+        this.searchPanel.classList.add("dock-shown");
+
+        this.searchPanel.style.transform = "";
+
+        this.dockSearch?.classList.add("active");
+
+        document.body.classList.add("search-open");
+
+        this.showCategoryBtn();
+
+        // Фокус на инпуте сразу открывает дропдаун трекеров. Дропдаун теперь
+        // absolute внутри .search-wrapper и едет вместе с панелью — ждать
+        // окончания анимации не нужно (нет гонки позиций).
+        this.input.focus();
+
+    }
+
+    hideSearchPanel() {
+
+        this.searchPanel.classList.add("dock-hidden");
+
+        this.searchPanel.classList.remove("dock-shown");
+
+        this.searchPanel.style.transform = "";
+
+        this.dockSearch?.classList.remove("active");
+
+        document.body.classList.remove("search-open");
+
+        this.hideCategoryBtn();
+
+        this.input.blur();
+
+        this.closeTrackerDropdown();
 
     }
 
@@ -627,6 +719,9 @@ class TorrentApp {
     render(data) {
 
         this.stopLoader();
+
+        // После вывода результатов окно поиска скрывается, остаётся только док
+        this.hideSearchPanel();
 
         // Поддержка и массива (старый формат) и объекта { results, errors }
         const isArray = Array.isArray(data);
@@ -959,9 +1054,6 @@ class TorrentApp {
 
         let index = Math.floor(Math.random() * phrases.length);
 
-        // Кнопка избранного исчезает на время поиска
-        this.favoritesBtn.classList.add("hidden");
-
         this.results.innerHTML = `
 <section class="empty">
 <div class="empty-icon pulse">
@@ -989,9 +1081,6 @@ ${phrases[index]}
             clearInterval(this.loaderInterval);
             this.loaderInterval = null;
         }
-
-        // Кнопка избранного возвращается после завершения поиска
-        this.favoritesBtn.classList.remove("hidden");
 
     }
 
@@ -1213,9 +1302,9 @@ ${phrases[index]}
 
         this.stopLoader();
 
-        document.querySelector(".header")?.classList.remove("has-results");
+        this.hideSearchPanel();
 
-        this.searchPanel.classList.remove("hidden-search");
+        document.querySelector(".header")?.classList.remove("has-results");
 
         this.searchFab.classList.remove("visible");
 
@@ -1319,6 +1408,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.updateCounter(0);
 
+        this.hideSearchPanel();
+
     }
 
     showEmptyStart() {
@@ -1389,16 +1480,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.populateTrackerDropdown();
 
-        // Position dropdown above search box
-        const box = this.searchPanel.querySelector(".search-box").getBoundingClientRect();
-
-        this.trackerDropdown.style.left = box.left + "px";
-
-        this.trackerDropdown.style.width = box.width + "px";
-
-        this.trackerDropdown.style.bottom =
-            (window.innerHeight - box.top + 8) + "px";
-
+        // Позиция задаётся в CSS: дропдаун absolute внутри .search-wrapper,
+        // поэтому он едет вместе с панелью и не зависит от анимации открытия.
         this.trackerDropdown.classList.add("open");
 
         this.createIcons();
@@ -2074,7 +2157,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         const show = this.getFavorites().length > 0;
 
-        this.favoritesBtn.classList.toggle("has-fav", show);
+        this.dockFavorites?.classList.toggle("has-fav", show);
 
     }
 
@@ -2082,9 +2165,15 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.closeSettings();
 
+        // Окно избранного открывается на весь экран — прячем окно поиска
+        this.hideSearchPanel();
+
         this.populateFavoritesList();
 
         this.favoritesOverlay.classList.add("open");
+
+        // Док остаётся видимым поверх окна избранного — подсвечиваем кнопку
+        this.dockFavorites?.classList.add("active");
 
         document.body.style.overflow = "hidden";
 
@@ -2093,6 +2182,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
     closeFavorites() {
 
         this.favoritesOverlay.classList.remove("open");
+
+        this.dockFavorites?.classList.remove("active");
 
         document.body.style.overflow = "";
 
