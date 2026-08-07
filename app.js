@@ -18,6 +18,11 @@ class TorrentApp {
         this.favoritesBackdrop = document.getElementById("favoritesBackdrop");
         this.favoritesClose = document.getElementById("favoritesClose");
         this.favoritesList = document.getElementById("favoritesList");
+        this.historyOverlay = document.getElementById("historyOverlay");
+        this.historyBackdrop = document.getElementById("historyBackdrop");
+        this.historyClose = document.getElementById("historyClose");
+        this.historyList = document.getElementById("historyList");
+        this.historyClear = document.getElementById("historyClear");
         this.searchFab = document.getElementById("searchFab");
         this.searchPanel = document.querySelector(".search-panel");
         this.trackerDropdown = document.getElementById("trackerDropdown");
@@ -49,6 +54,8 @@ class TorrentApp {
 
         this._favorites = this.readLocalFavorites();
 
+        this._history = this.readLocalHistory();
+
     }
 
     init() {
@@ -67,6 +74,8 @@ class TorrentApp {
         this.updateFavoritesButtonCount();
 
         this.loadFavoritesFromServer();
+
+        this.loadHistoryFromServer();
 
     }
 
@@ -385,6 +394,34 @@ class TorrentApp {
         });
 
         // ==========================
+        // HISTORY — панель-шторка
+        // ==========================
+
+        this.historyClose.addEventListener("click", () => {
+
+            this.closeHistory();
+
+        });
+
+        this.historyOverlay.addEventListener("click", (e) => {
+
+            if (e.target === this.historyOverlay || e.target === this.historyBackdrop) {
+
+                this.closeHistory();
+
+            }
+
+        });
+
+        this.historyClear.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            this.clearHistory();
+
+        });
+
+        // ==========================
         // TRACKER DROPDOWN — открывается при фокусе на поиске
         // ==========================
 
@@ -543,10 +580,21 @@ class TorrentApp {
 
         });
 
-        // История — заглушка (бездействует)
         this.dockHistory.addEventListener("click", (e) => {
+
             e.stopPropagation();
-            // TODO: история поиска
+
+            // Повторный клик по активной кнопке закрывает окно истории
+            if (this.historyOverlay.classList.contains("open")) {
+
+                this.closeHistory();
+
+            } else {
+
+                this.openHistory();
+
+            }
+
         });
 
         // ==========================
@@ -640,7 +688,12 @@ class TorrentApp {
 
         this.closeFavorites();
 
+        this.closeHistory();
+
         this.closeTrackerDropdown();
+
+        // Запоминаем запрос в истории (последние 20)
+        this.addHistory(query);
 
         // Кнопка категорий исчезает после начала поиска
         this.hideCategoryBtn();
@@ -2165,6 +2218,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.closeSettings();
 
+        this.closeHistory();
+
         // Окно избранного открывается на весь экран — прячем окно поиска
         this.hideSearchPanel();
 
@@ -2186,6 +2241,278 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         this.dockFavorites?.classList.remove("active");
 
         document.body.style.overflow = "";
+
+    }
+
+    // =====================================================
+    // ИСТОРИЯ ПОИСКА
+    // =====================================================
+
+    getHistory() {
+
+        return Array.isArray(this._history) ? this._history : [];
+
+    }
+
+    readLocalHistory() {
+
+        try {
+            return JSON.parse(localStorage.getItem("arr_history") || "[]");
+        } catch (_) {
+            return [];
+        }
+
+    }
+
+    saveHistory(list) {
+
+        list = Array.isArray(list) ? list.slice(0, 20) : [];
+
+        this._history = list;
+
+        try {
+            localStorage.setItem("arr_history", JSON.stringify(list));
+        } catch (_) {
+            // ignore quota errors
+        }
+
+        this.persistHistory();
+
+        return list;
+
+    }
+
+    persistHistory() {
+
+        const payload = { history: this.getHistory() };
+
+        this._persistHistoryChain = (this._persistHistoryChain || Promise.resolve()).then(async () => {
+
+            try {
+
+                await fetch("/api/history", {
+
+                    method: "POST",
+
+                    headers: { "Content-Type": "application/json" },
+
+                    body: JSON.stringify(payload)
+
+                });
+
+            } catch (_) {
+
+                // Сервер недоступен — история остаётся в localStorage-кэше
+            }
+
+        });
+
+        return this._persistHistoryChain;
+
+    }
+
+    async loadHistoryFromServer() {
+
+        try {
+
+            const res = await fetch("/api/history");
+
+            if (!res.ok) return;
+
+            const data = await res.json();
+
+            const serverList = Array.isArray(data.history) ? data.history : [];
+
+            if (serverList.length === 0) {
+
+                // Одноразовая миграция: если на сервере пусто, а в localStorage
+                // есть история — заливаем её на сервер.
+                const localList = this.readLocalHistory();
+
+                if (localList.length > 0) {
+
+                    this._history = localList;
+
+                    this.persistHistory();
+
+                }
+
+            } else {
+
+                this._history = serverList.slice(0, 20);
+
+                try {
+                    localStorage.setItem("arr_history", JSON.stringify(this._history));
+                } catch (_) {
+                    // ignore
+                }
+
+            }
+
+            if (this.historyOverlay.classList.contains("open")) {
+
+                this.populateHistoryList();
+
+            }
+
+        } catch (_) {
+
+            // Сервер недоступен — используем локальный кэш
+            this._history = this.readLocalHistory();
+
+        }
+
+    }
+
+    addHistory(query) {
+
+        query = String(query || "").trim();
+
+        if (!query) return;
+
+        let list = this.getHistory();
+
+        // Удаляем старую запись с таким же запросом (регистронезависимо),
+        // чтобы повторный поиск поднимал запрос наверх, а не дублировал.
+        const lower = query.toLowerCase();
+
+        list = list.filter(h => String(h.query || "").toLowerCase() !== lower);
+
+        list.unshift({ query, ts: Date.now() });
+
+        this.saveHistory(list);
+
+    }
+
+    removeHistory(query) {
+
+        const lower = String(query || "").toLowerCase();
+
+        const list = this.getHistory().filter(h => String(h.query || "").toLowerCase() !== lower);
+
+        this.saveHistory(list);
+
+        this.populateHistoryList();
+
+    }
+
+    clearHistory() {
+
+        this.saveHistory([]);
+
+        this.populateHistoryList();
+
+    }
+
+    openHistory() {
+
+        this.closeSettings();
+
+        this.closeFavorites();
+
+        // Окно истории открывается на весь экран — прячем окно поиска
+        this.hideSearchPanel();
+
+        this.populateHistoryList();
+
+        this.historyOverlay.classList.add("open");
+
+        // Док остаётся видимым поверх окна истории — подсвечиваем кнопку
+        this.dockHistory?.classList.add("active");
+
+        document.body.style.overflow = "hidden";
+
+    }
+
+    closeHistory() {
+
+        this.historyOverlay.classList.remove("open");
+
+        this.dockHistory?.classList.remove("active");
+
+        document.body.style.overflow = "";
+
+    }
+
+    runHistoryQuery(query) {
+
+        this.input.value = String(query || "").trim();
+
+        this.closeHistory();
+
+        this.search();
+
+    }
+
+    populateHistoryList() {
+
+        const list = this.getHistory();
+
+        if (!this.historyList) return;
+
+        if (list.length === 0) {
+
+            this.historyList.innerHTML = `
+<div class="history-empty">
+<div class="history-empty-icon">
+<i data-lucide="history"></i>
+</div>
+<p>История поиска пуста.</p>
+<p class="history-empty-hint">Выполните поиск — запросы появятся здесь.</p>
+</div>`;
+
+            this.createIcons();
+
+            return;
+
+        }
+
+        let html = "";
+
+        list.forEach(item => {
+
+            const query = String(item.query || "").trim();
+
+            if (!query) return;
+
+            html += `
+<div class="history-item" data-query="${this.escapeHtml(query)}">
+<div class="history-item-icon"><i data-lucide="search"></i></div>
+<div class="history-item-query">${this.escapeHtml(query)}</div>
+<button class="action-icon history-item-remove" title="Удалить из истории"><i data-lucide="x"></i></button>
+</div>`;
+
+        });
+
+        this.historyList.innerHTML = html;
+
+        this.createIcons();
+
+        this.historyList.querySelectorAll(".history-item").forEach(row => {
+
+            const q = row.dataset.query;
+
+            if (!q) return;
+
+            row.addEventListener("click", (e) => {
+
+                if (e.target.closest(".history-item-remove")) return;
+
+                this.runHistoryQuery(q);
+
+            });
+
+            const removeBtn = row.querySelector(".history-item-remove");
+
+            removeBtn?.addEventListener("click", (e) => {
+
+                e.stopPropagation();
+
+                this.removeHistory(q);
+
+            });
+
+        });
 
     }
 

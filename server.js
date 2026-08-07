@@ -24,9 +24,11 @@ const PROWLARR_API_KEY = process.env.PROWLARR_API_KEY;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Избранное хранится в JSON-файле (смонтировано через DATA_DIR в Docker)
+// Избранное и история хранятся в JSON-файлах (смонтировано через DATA_DIR в Docker)
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const FAVORITES_FILE = path.join(DATA_DIR, "favorites.json");
+const HISTORY_FILE = path.join(DATA_DIR, "history.json");
+const HISTORY_LIMIT = 20;
 
 // =============================
 // STATIC FILES
@@ -853,6 +855,90 @@ app.post("/api/favorites", async (req, res) => {
 
 });
 
+// =============================
+// HISTORY (server-side storage)
+// =============================
+
+async function readHistoryFile() {
+
+    try {
+
+        const raw = await fsp.readFile(HISTORY_FILE, "utf8");
+
+        const parsed = JSON.parse(raw);
+
+        return Array.isArray(parsed) ? parsed.slice(0, HISTORY_LIMIT) : [];
+
+    } catch (err) {
+
+        if (err.code === "ENOENT") return [];
+
+        console.error("readHistoryFile error:", err);
+
+        return [];
+
+    }
+
+}
+
+async function writeHistoryFile(list) {
+
+    await fsp.mkdir(path.dirname(HISTORY_FILE), { recursive: true });
+
+    const trimmed = Array.isArray(list) ? list.slice(0, HISTORY_LIMIT) : [];
+
+    const tmp = `${HISTORY_FILE}.tmp`;
+
+    await fsp.writeFile(tmp, JSON.stringify(trimmed, null, 2), "utf8");
+
+    await fsp.rename(tmp, HISTORY_FILE);
+
+}
+
+app.get("/api/history", async (req, res) => {
+
+    try {
+
+        const history = await readHistoryFile();
+
+        res.json({ history });
+
+    } catch (err) {
+
+        console.error("GET /api/history error:", err);
+
+        res.status(500).json({ error: true, message: "Ошибка чтения истории" });
+
+    }
+
+});
+
+app.post("/api/history", async (req, res) => {
+
+    try {
+
+        const list = req.body && req.body.history;
+
+        if (!Array.isArray(list)) {
+
+            return res.status(400).json({ error: true, message: "history должен быть массивом" });
+
+        }
+
+        await writeHistoryFile(list);
+
+        res.json({ ok: true, count: list.length });
+
+    } catch (err) {
+
+        console.error("POST /api/history error:", err);
+
+        res.status(500).json({ error: true, message: "Ошибка сохранения истории" });
+
+    }
+
+});
+
 
 // =============================
 // START SERVER
@@ -868,6 +954,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(` Search: http://localhost:${PORT}/api/search?q=test`);
     console.log(` Indexers: http://localhost:${PORT}/api/indexers`);
     console.log(` Favorites: ${FAVORITES_FILE}`);
+    console.log(` History: ${HISTORY_FILE}`);
 
     const interfaces = os.networkInterfaces();
 
