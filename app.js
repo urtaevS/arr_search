@@ -2,6 +2,11 @@
 // Torrent Search
 // =====================================================
 
+// Показывать ли кнопку «В TorrentMonitor» на карточках результатов.
+// СЕЙЧАС false — кнопка скрыта до починки API на сервере TorrentMonitor
+// (nginx отдаёт 500 на все /api/* запросы). Когда API заработает — поставьте true.
+const TM_BUTTON_ENABLED = false;
+
 class TorrentApp {
 
     constructor() {
@@ -2005,6 +2010,30 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         });
 
+        // ==========================
+        // В TorrentMonitor
+        // ==========================
+
+        const tmBtn = node.querySelector(".tm");
+
+        // Кнопка скрыта, пока TM_BUTTON_ENABLED === false (см. флаг вверху файла)
+        if (!TM_BUTTON_ENABLED || !item.details) {
+
+            tmBtn.style.display = "none";
+
+        }
+        else {
+
+            tmBtn.addEventListener("click", (e) => {
+
+                e.stopPropagation();
+
+                this.sendToTorrentMonitor(item);
+
+            });
+
+        }
+
         return node;
 
     }
@@ -2777,6 +2806,12 @@ ${item.details ? `<button class="action-icon details" title="Страница р
 
     showMagnetCopied() {
 
+        this.showToast("Ссылка скопирована");
+
+    }
+
+    showToast(message) {
+
         const existing =
             document.querySelector(".toast");
 
@@ -2792,7 +2827,7 @@ ${item.details ? `<button class="action-icon details" title="Страница р
 
         title.className = "toast-title";
 
-        title.textContent = "Ссылка скопирована";
+        title.textContent = message;
 
         toast.appendChild(title);
 
@@ -2812,6 +2847,38 @@ ${item.details ? `<button class="action-icon details" title="Страница р
             );
 
         }, 6000);
+
+    }
+
+    async sendToTorrentMonitor(item) {
+
+        const url = item.details || "";
+
+        if (!url) return;
+
+        try {
+
+            const res = await fetch("/api/tm/torrents", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, name: item.title })
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            const ok = !!(data && data.ok);
+
+            const message =
+                (data && data.message) ||
+                (ok ? "Отправлено в TorrentMonitor" : "Не удалось отправить в TorrentMonitor");
+
+            this.showToast(message);
+
+        } catch (err) {
+
+            this.showToast("Не удалось отправить в TorrentMonitor");
+
+        }
 
     }
 

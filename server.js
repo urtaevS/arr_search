@@ -21,6 +21,10 @@ const API_KEY = process.env.JACKETT_API_KEY;
 const PROWLARR_URL = process.env.PROWLARR_URL;
 const PROWLARR_API_KEY = process.env.PROWLARR_API_KEY;
 
+// TorrentMonitor (отправка раздач в отслеживание)
+const TM_URL = process.env.TM_URL;
+const TM_API_KEY = process.env.TM_API_KEY;
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
@@ -941,6 +945,131 @@ app.post("/api/history", async (req, res) => {
 
 
 // =============================
+// TORRENTMONITOR (proxy)
+// =============================
+
+app.get("/api/tm/torrents", async (req, res) => {
+
+    if (!TM_URL || !TM_API_KEY) {
+
+        return res.status(503).json({ ok: false, message: "TorrentMonitor не настроен (TM_URL / TM_API_KEY в .env)" });
+
+    }
+
+    try {
+
+        const tmRes = await axios.get(`${TM_URL.replace(/\/+$/, "")}/api/torrents`, {
+
+            headers: { Authorization: `Bearer ${TM_API_KEY}` },
+
+            timeout: 15000,
+
+            validateStatus: () => true
+
+        });
+
+        const data = tmRes.data || {};
+
+        const ok = !!data.ok;
+
+        if (!ok) {
+
+            const bodyPreview = typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200);
+
+            console.error(`[tm] GET TM ответил ${tmRes.status}: ${bodyPreview}`);
+
+        }
+
+        return res.status(ok ? 200 : (tmRes.status || 500)).json(data);
+
+    } catch (err) {
+
+        console.error("GET /api/tm/torrents error:", err.message);
+
+        return res.status(502).json({ ok: false, message: "Не удалось связаться с TorrentMonitor" });
+
+    }
+
+});
+
+app.post("/api/tm/torrents", async (req, res) => {
+
+    if (!TM_URL || !TM_API_KEY) {
+
+        return res.status(503).json({ ok: false, message: "TorrentMonitor не настроен (TM_URL / TM_API_KEY в .env)" });
+
+    }
+
+    const url = req.body && req.body.url;
+
+    const name = req.body && req.body.name;
+
+    if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+
+        return res.status(400).json({ ok: false, message: "Неверная ссылка на раздачу" });
+
+    }
+
+    try {
+
+        const body = { url };
+
+        if (name && typeof name === "string" && name.trim()) {
+
+            body.name = name.trim();
+
+        }
+
+        const tmRes = await axios.post(`${TM_URL.replace(/\/+$/, "")}/api/torrents`, body, {
+
+            headers: {
+
+                Authorization: `Bearer ${TM_API_KEY}`,
+
+                "Content-Type": "application/json"
+
+            },
+
+            timeout: 15000,
+
+            validateStatus: () => true
+
+        });
+
+        const data = tmRes.data || {};
+
+        const ok = !!data.ok;
+
+        if (!ok) {
+
+            const bodyPreview = typeof data === "string" ? data.slice(0, 200) : JSON.stringify(data).slice(0, 200);
+
+            console.error(`[tm] TM ответил ${tmRes.status}: ${bodyPreview}`);
+
+        }
+
+        return res.status(ok ? 200 : (tmRes.status || 500)).json({
+
+            ok,
+
+            message: data.message || (ok ? "Раздача отправлена в TorrentMonitor" : "Ошибка TorrentMonitor"),
+
+            data: data.data || null
+
+        });
+
+    } catch (err) {
+
+        console.error("POST /api/tm/torrents error:", err.message);
+
+        return res.status(502).json({ ok: false, message: "Не удалось связаться с TorrentMonitor" });
+
+    }
+
+});
+
+
+// =============================
 // START SERVER
 // =============================
 
@@ -955,6 +1084,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(` Indexers: http://localhost:${PORT}/api/indexers`);
     console.log(` Favorites: ${FAVORITES_FILE}`);
     console.log(` History: ${HISTORY_FILE}`);
+    console.log(` TorrentMonitor: ${TM_URL ? "настроен" : "НЕ настроен (укажите TM_URL/TM_API_KEY)"}`);
 
     const interfaces = os.networkInterfaces();
 

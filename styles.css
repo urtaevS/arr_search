@@ -1095,6 +1095,20 @@ body.search-open .results{
 
 }
 
+.action-icon.tm{
+
+    background:rgba(167,139,250,.20);
+
+    color:#A78BFA;
+
+}
+
+.action-icon.tm:hover{
+
+    background:rgba(167,139,250,.32);
+
+}
+
 .action-icon.fav{
 
     background:rgba(251,191,36,.16);
