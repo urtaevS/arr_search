@@ -1,14 +1,25 @@
 services:
   torrent-search:
-    build: .
+    # Готовый образ из Docker Hub (собирается автоматически GitHub Actions при пуше)
+    image: urtaev/arr_search:latest
     container_name: torrent-search
     ports:
       - "3000:3000"
-    env_file:
-      - .env
+    environment:
+      # Watch-папка для .torrent — указываем на смонтированный том ./torrents
+      # (иначе по умолчанию попала бы во внутреннюю папку data).
+      TORRENT_WATCH_DIR: /app/torrents
     volumes:
+      # .env монтируется в контейнер для чтения ключей (JACKETT/PROWLARR/TM).
+      # Если хотите катить параметры через docker compose env — можно добавить env_file: [.env]
       - ./.env:/app/.env:ro
-      # Избранное хранится в ./data/favorites.json — bind-mount, чтобы данные
-      # переживали пересоздание контейнера и были доступны для ручной правки.
+      # Избранное (data/favorites.json) и история (data/history.json) — переживают
+      # пересоздание контейнера, доступны для ручной правки на хосте.
       - ./data:/app/data
+      # Watch-папка торрент-качалки: .torrent-файлы, сохранённые через кнопку
+      # «Сохранить в качалку», попадают на хост в ./torrents и подхватываются
+      # торрент-клиентом (qBittorrent и др. с включённым «watch folder»).
+      # Чтобы использовать другую папку качалки — поменяйте только левую часть,
+      # например: /Volumes/Downloads/watch:/app/torrents
+      - ./torrents:/app/torrents
     restart: unless-stopped

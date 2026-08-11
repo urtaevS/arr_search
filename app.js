@@ -536,6 +536,10 @@ class TorrentApp {
 
         this.searchFab.addEventListener("click", () => {
 
+            this.closeFavorites();
+
+            this.closeHistory();
+
             this.input.value = "";
 
             this.searchButton.classList.remove("visible");
@@ -633,6 +637,10 @@ class TorrentApp {
     }
 
     showSearchPanel() {
+
+        this.closeFavorites();
+
+        this.closeHistory();
 
         this.searchPanel.classList.remove("dock-hidden");
 
@@ -1991,8 +1999,31 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 window.open(item.torrent, "_blank");
 
             }
-
+пап
         });
+
+        // ==========================
+        // Сохранить .torrent в качалку (watch folder)
+        // ==========================
+
+        const saveBtn = node.querySelector(".save");
+
+        if (!item.torrent) {
+
+            saveBtn.style.display = "none";
+
+        }
+        else {
+
+            saveBtn.addEventListener("click", (e) => {
+
+                e.stopPropagation();
+
+                this.saveTorrentToWatch(item);
+
+            });
+
+        }
 
         // ==========================
         // Страница раздачи
@@ -2877,6 +2908,38 @@ ${item.details ? `<button class="action-icon details" title="Страница р
         } catch (err) {
 
             this.showToast("Не удалось отправить в TorrentMonitor");
+
+        }
+
+    }
+
+    async saveTorrentToWatch(item) {
+
+        const url = item.torrent || "";
+
+        if (!url) return;
+
+        try {
+
+            const res = await fetch("/api/torrents/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ url, title: item.title })
+            });
+
+            const data = await res.json().catch(() => ({}));
+
+            const ok = !!(data && data.ok);
+
+            const message =
+                (data && data.message) ||
+                (ok ? "Сохранено в папку" : "Не удалось сохранить .torrent");
+
+            this.showToast(message);
+
+        } catch (err) {
+
+            this.showToast("Не удалось сохранить .torrent");
 
         }
 

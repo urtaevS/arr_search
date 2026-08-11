@@ -34,6 +34,11 @@ const FAVORITES_FILE = path.join(DATA_DIR, "favorites.json");
 const HISTORY_FILE = path.join(DATA_DIR, "history.json");
 const HISTORY_LIMIT = 20;
 
+// Папка для сохранения .torrent-файлов (watch folder торрент-качалки).
+// В Docker монтируется отдельным томом (./torrents:/app/torrents) и задаётся через TORRENT_WATCH_DIR.
+// Локально по умолчанию — data/torrents.
+const TORRENT_WATCH_DIR = process.env.TORRENT_WATCH_DIR || path.join(DATA_DIR, "torrents");
+
 // =============================
 // STATIC FILES
 // =============================
@@ -181,6 +186,31 @@ function summarizeError(err, fallback = "Неизвестная ошибка") {
     if (/429|rate ?limit/i.test(low)) return "429 — слишком много запросов";
     if (raw.length > 150) raw = raw.slice(0, 150) + "…";
     return raw || fallback;
+}
+
+// Санитизация имени файла из названия раздачи (запрещённые символы, длина, расширение)
+function sanitizeFilename(name) {
+    let s = String(name || "torrent")
+        .replace(/[<>:"/\\|?*\x00-\x1F]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .replace(/\.+$/g, "")
+        .slice(0, 120);
+    if (!s) s = "torrent";
+    return s + ".torrent";
+}
+
+// Уникальное имя файла в watch-папке (добавляет « (1)», « (2)» если файл уже существует)
+function uniqueWatchPath(filePath) {
+    let candidate = filePath;
+    let i = 1;
+    while (fs.existsSync(candidate)) {
+        const ext = path.extname(filePath);
+        const base = path.basename(filePath, ext);
+        candidate = path.join(path.dirname(filePath), `${base} (${i})${ext}`);
+        i++;
+    }
+    return candidate;
 }
 
 function parseIndexerErrors(raw) {
@@ -1068,6 +1098,179 @@ app.post("/api/tm/torrents", async (req, res) => {
 
 });
 
+// =============================
+// SAVE .TORRENT INTO WATCH FOLDER (торрент-качалка)
+// =============================
+
+app.post("/api/torrents/save", async (req, res) => {
+
+    const url = req.body && req.body.url;
+
+    const title = req.body && req.body.title;
+
+    if (!url || typeof url !== "string" || !/^https?:\/\//i.test(url)) {
+
+        return res.status(400).json({ ok: false, message: "Неверная ссылка на .torrent" });
+
+    }
+
+    const filename = sanitizeFilename(title);
+
+    try {
+
+        // Папка должна существовать — создаём при необходимости
+        await fsp.mkdir(TORRENT_WATCH_DIR, { recursive: true });
+
+        // Качаем, следуя редиректам вручную — чтобы поймать magnet-редиректы
+        // (Prowlarr для некоторых индексаторов, напр. RuTracker, отдаёт 301 на
+        //  magnet: вместо .torrent-файла — тогда скачать файл нельзя).
+        let currentUrl = url;
+        let buf = null;
+
+        for (let i = 0; i < 6; i++) {
+
+            const dl = await axios.get(currentUrl, {
+
+                responseType: "arraybuffer",
+
+                timeout: 30000,
+
+                maxRedirects: 0,          // редиректы обрабатываем сами
+
+                headers: { "User-Agent": "TorrentSearch/1.0" },
+
+                validateStatus: (s) => s >= 200 && s < 400
+
+            });
+
+            if (dl.status >= 300 && dl.status < 400) {
+
+                const loc = dl.headers && dl.headers.location;
+
+                if (!loc) {
+
+                    return res.status(502).json({ ok: false, message: "Редирект без Location" });
+
+                }
+
+                if (/^magnet:/i.test(loc)) {
+
+                    return res.status(422).json({
+
+                        ok: false,
+
+                        code: "magnet",
+
+                        magnet: loc,
+
+                        message: "Трекер отдаёт magnet-ссылку, а не .torrent файл (в Prowlarr для этого индексатора включены magnet-ссылки). Добавьте раздачу в качалку через кнопку magnet, либо отключите magnet-ссылки в Prowlarr."
+
+                    });
+
+                }
+
+                currentUrl = new URL(loc, currentUrl).toString();
+
+                continue;
+
+            }
+
+            buf = Buffer.from(dl.data);
+
+            break;
+
+        }
+
+        if (!buf) {
+
+            return res.status(502).json({ ok: false, message: "Не удалось получить данные по ссылке" });
+
+        }
+
+        // Индексатор/Prowlarr мог вернуть страницу-ошибку (например, XML <error code="500" ...>)
+        if (buf.length > 0 && buf.length < 2048) {
+
+            const head = buf.slice(0, 2048).toString("utf8").toLowerCase();
+
+            if (head.includes("invalid torrent file") || (head.includes("<error") && head.includes("description"))) {
+
+                return res.status(502).json({
+
+                    ok: false,
+
+                    message: "Индексатор не отдал .torrent файл (ошибка Prowlarr: Invalid torrent file contents). Проверьте аккаунт/сессию индексатора в Prowlarr."
+
+                });
+
+            }
+
+        }
+
+        // Проверка, что это валидный .torrent (bencoded-словарь: начинается с 'd', содержит 4:info)
+        if (buf.length < 8 || buf[0] !== 0x64 || buf.indexOf(Buffer.from("4:info")) === -1) {
+
+            return res.status(400).json({ ok: false, message: "По ссылке получен не .torrent файл" });
+
+        }
+
+        const filePath = uniqueWatchPath(path.join(TORRENT_WATCH_DIR, filename));
+
+        await fsp.writeFile(filePath, buf);
+
+        console.log(`[watch] Сохранён .torrent: ${path.basename(filePath)} (${buf.length} байт)`);
+
+        return res.json({
+
+            ok: true,
+
+            message: `Сохранено в папку: ${path.basename(filePath)}`,
+
+            file: path.basename(filePath)
+
+        });
+
+    } catch (err) {
+
+        console.error("POST /api/torrents/save error:", err.message);
+
+        // Разбираем типичные ошибки понятным текстом
+        let msg = "Не удалось скачать .torrent: " + summarizeError(err, "ошибка загрузки");
+
+        if (err && err.response) {
+
+            const status = err.response.status;
+
+            const data = Buffer.isBuffer(err.response.data)
+                ? err.response.data.toString("utf8")
+                : String(err.response.data || "");
+
+            const loc = String((err.response.headers && err.response.headers.location) || "");
+
+            if (status === 500 && /invalid torrent file/i.test(data)) {
+
+                msg = "Индексатор не отдал .torrent файл (ошибка Prowlarr: Invalid torrent file contents). Проверьте аккаунт/сессию индексатора в Prowlarr.";
+
+            } else if (/^magnet:/i.test(loc)) {
+
+                msg = "Трекер отдаёт magnet-ссылку, а не .torrent файл. Добавьте раздачу в качалку через кнопку magnet, либо отключите magnet-ссылки в Prowlarr для этого индексатора.";
+
+            } else if (status >= 400) {
+
+                msg = "Сервис скачивания вернул ошибку HTTP " + status + ". Проверьте индексатор в Prowlarr (возможно, требуется вход или обновление сессии).";
+
+            }
+
+        } else if (err && err.message && /magnet/i.test(err.message)) {
+
+            msg = "Трекер отдаёт magnet-ссылку, а не .torrent файл. Добавьте раздачу в качалку через кнопку magnet, либо отключите magnet-ссылки в Prowlarr для этого индексатора.";
+
+        }
+
+        return res.status(502).json({ ok: false, message: msg });
+
+    }
+
+});
 
 // =============================
 // START SERVER
@@ -1084,6 +1287,7 @@ const server = app.listen(PORT, "0.0.0.0", () => {
     console.log(` Indexers: http://localhost:${PORT}/api/indexers`);
     console.log(` Favorites: ${FAVORITES_FILE}`);
     console.log(` History: ${HISTORY_FILE}`);
+    console.log(` Watch folder (.torrent): ${TORRENT_WATCH_DIR}`);
     console.log(` TorrentMonitor: ${TM_URL ? "настроен" : "НЕ настроен (укажите TM_URL/TM_API_KEY)"}`);
 
     const interfaces = os.networkInterfaces();

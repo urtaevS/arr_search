@@ -109,7 +109,11 @@ body{
 
     align-items:center;
 
+    /* 100vh на мобильном больше видимой области (под адресной строкой браузера), из-за чего
+       нижняя часть списка (пагинация со стрелками) уезжала за док/низ экрана.
+       100dvh = реальная видимая высота (учитывает скрытую тулбаром область). */
     height:100vh;
+    height:100dvh;
 
 }
 
@@ -1007,15 +1011,19 @@ body.search-open .results{
 
     display:flex;
 
-    gap:8px;
+    flex-wrap:wrap;
+
+    gap:6px;
+
+    min-width:0;
 
 }
 
 .action-icon{
 
-    width:30px;
+    width:26px;
 
-    height:30px;
+    height:26px;
 
     border:none;
 
@@ -1039,9 +1047,9 @@ body.search-open .results{
 
 .action-icon svg{
 
-    width:15px;
+    width:16px;
 
-    height:15px;
+    height:16px;
 
 }
 
@@ -1081,6 +1089,20 @@ body.search-open .results{
 
 }
 
+.action-icon.save{
+
+    background:rgba(244,114,182,.20);
+
+    color:#F472B6;
+
+}
+
+.action-icon.save:hover{
+
+    background:rgba(244,114,182,.32);
+
+}
+
 .action-icon.details{
 
     background:rgba(245,158,11,.20);
@@ -1111,21 +1133,23 @@ body.search-open .results{
 
 .action-icon.fav{
 
-    background:rgba(251,191,36,.16);
+    background:transparent;
 
     color:#FBBF24;
+
+    margin-top:-4px;
 
 }
 
 .action-icon.fav:hover{
 
-    background:rgba(251,191,36,.30);
+    background:rgba(251,191,36,.15);
 
 }
 
 .action-icon.fav.active{
 
-    background:rgba(251,191,36,.34);
+    background:transparent;
 
     color:#FBBF24;
 
@@ -1369,8 +1393,8 @@ body.search-open .results{
 
 .fav-actions .action-icon{
 
-    width:30px;
-    height:30px;
+    width:26px;
+    height:26px;
 
 }
 
@@ -2244,18 +2268,21 @@ body.search-open .results{
     top:0;
     right:0;
     bottom:0;
-    left:auto;
+    left:0;
 
-    width:75vw;
+    width:100%;
+    max-width:900px;
+    margin:0 auto;
 
     background:rgba(11,14,20,.88);
 
     backdrop-filter:blur(32px);
     -webkit-backdrop-filter:blur(32px);
 
-    border-radius:20px 0 0 20px;
+    border-radius:0;
 
     border-left:1px solid rgba(255,255,255,.06);
+    border-right:1px solid rgba(255,255,255,.06);
 
     display:flex;
     flex-direction:column;
@@ -3035,7 +3062,7 @@ body.search-open .results{
 
     .settings-panel{
 
-        width:75vw;
+        width:100%;
 
     }
 
