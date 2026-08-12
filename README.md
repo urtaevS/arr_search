@@ -1,4 +1,7 @@
-# Torrent Search
+<img width="1257" height="267" alt="grok_image_1786541338758 (1)" src="https://github.com/user-attachments/assets/fc15d7ed-f9f0-4d99-8fec-29e37df76bcf" />
+
+-------
+
 
 [![Docker Hub](https://img.shields.io/docker/v/urtaev/arr_search?label=Docker%20Hub&logo=docker&color=0db7ed)](https://hub.docker.com/repository/docker/urtaev/arr_search)
 
