@@ -248,6 +248,48 @@
     </div>
 
     <!-- ========================= -->
+    <!-- ENV SETTINGS PANEL        -->
+    <!-- ========================= -->
+
+    <div id="envOverlay" class="settings-overlay">
+
+        <div id="envBackdrop"></div>
+
+        <div id="envPanel" class="settings-panel">
+
+            <div class="settings-body">
+
+                <div class="settings-section">
+
+                    <div class="filter-header">
+                        <span class="filter-title visible">Настройки</span>
+                        <button id="envClose" class="icon-btn" title="Закрыть">
+                            <i data-lucide="x"></i>
+                        </button>
+                    </div>
+
+                    <div class="section-body">
+
+                        <div id="envForm" class="settings-form"></div>
+
+                    </div>
+
+                    <div class="settings-footer">
+                        <button id="envSave" class="settings-save-btn">
+                            <i data-lucide="save"></i>
+                            <span>Сохранить</span>
+                        </button>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- ========================= -->
     <!-- SEARCH                    -->
     <!-- ========================= -->
 
@@ -317,6 +359,16 @@
     <!-- ========================= -->
 
     <nav id="dock" class="dock" aria-label="Навигация">
+
+        <button
+            id="dockEnv"
+            class="dock-btn"
+            title="Настройки"
+            aria-label="Настройки">
+
+            <i data-lucide="settings"></i>
+
+        </button>
 
         <button
             id="dockHistory"

@@ -35,6 +35,12 @@ class TorrentApp {
         this.dockHistory = document.getElementById("dockHistory");
         this.dockSearch = document.getElementById("dockSearch");
         this.dockFavorites = document.getElementById("dockFavorites");
+        this.dockEnv = document.getElementById("dockEnv");
+        this.envOverlay = document.getElementById("envOverlay");
+        this.envBackdrop = document.getElementById("envBackdrop");
+        this.envClose = document.getElementById("envClose");
+        this.envSave = document.getElementById("envSave");
+        this.envForm = document.getElementById("envForm");
 
         this.isSearching = false;
         this.activeBackend = "prowlarr";
@@ -607,6 +613,48 @@ class TorrentApp {
         });
 
         // ==========================
+        // ENV SETTINGS (dock button)
+        // ==========================
+
+        this.dockEnv.addEventListener("click", (e) => {
+
+            e.stopPropagation();
+
+            if (this.envOverlay.classList.contains("open")) {
+
+                this.closeEnv();
+
+            } else {
+
+                this.openEnv();
+
+            }
+
+        });
+
+        this.envClose.addEventListener("click", () => {
+
+            this.closeEnv();
+
+        });
+
+        this.envOverlay.addEventListener("click", (e) => {
+
+            if (e.target === this.envOverlay || e.target === this.envBackdrop) {
+
+                this.closeEnv();
+
+            }
+
+        });
+
+        this.envSave.addEventListener("click", () => {
+
+            this.saveEnvSettings();
+
+        });
+
+        // ==========================
         // SCROLLBAR AUTO-HIDE + SEARCH PANEL HIDE ON SCROLL DOWN
         // ==========================
 
@@ -641,6 +689,8 @@ class TorrentApp {
         this.closeFavorites();
 
         this.closeHistory();
+
+        this.closeEnv();
 
         this.searchPanel.classList.remove("dock-hidden");
 
@@ -937,6 +987,8 @@ class TorrentApp {
     openSettings() {
 
         this.closeFavorites();
+
+        this.closeEnv();
 
         this.updateSortUI();
 
@@ -2278,6 +2330,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.closeSettings();
 
+        this.closeEnv();
+
         this.closeHistory();
 
         // Окно избранного открывается на весь экран — прячем окно поиска
@@ -2470,6 +2524,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.closeFavorites();
 
+        this.closeEnv();
+
         // Окно истории открывается на весь экран — прячем окно поиска
         this.hideSearchPanel();
 
@@ -2491,6 +2547,166 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         this.dockHistory?.classList.remove("active");
 
         document.body.style.overflow = "";
+
+    }
+
+    // =====================================================
+    // ENV SETTINGS
+    // =====================================================
+
+    openEnv() {
+
+        this.closeSettings();
+
+        this.closeFavorites();
+
+        this.closeHistory();
+
+        this.hideSearchPanel();
+
+        this.loadEnvSettings();
+
+        this.envOverlay.classList.add("open");
+
+        this.dockEnv?.classList.add("active");
+
+        document.body.style.overflow = "hidden";
+
+    }
+
+    closeEnv() {
+
+        this.envOverlay.classList.remove("open");
+
+        this.dockEnv?.classList.remove("active");
+
+        document.body.style.overflow = "";
+
+    }
+
+    async loadEnvSettings() {
+
+        try {
+
+            const res = await fetch("/api/settings");
+
+            const data = await res.json();
+
+            if (!data.ok) throw new Error(data.message);
+
+            const groups = {
+
+                "Prowlarr": ["PROWLARR_URL", "PROWLARR_API_KEY"],
+
+                "Jackett": ["JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
+
+                "TorrentMonitor": ["TM_URL", "TM_API_KEY"],
+
+                "Система": ["PORT", "TORRENT_WATCH_DIR"],
+
+            };
+
+            const labels = {
+
+                "PROWLARR_URL": "URL сервера",
+
+                "PROWLARR_API_KEY": "API-ключ",
+
+                "JACKETT_URL": "URL сервера",
+
+                "JACKETT_API_KEY": "API-ключ",
+
+                "JACKETT_INDEXERS": "Индекстаторы (через запятую)",
+
+                "TM_URL": "URL сервера",
+
+                "TM_API_KEY": "API-ключ",
+
+                "PORT": "Порт сервера",
+
+                "TORRENT_WATCH_DIR": "Папка для .torrent файлов",
+
+            };
+
+            let html = "";
+
+            for (const [groupName, keys] of Object.entries(groups)) {
+
+                html += `<div class="env-group"><div class="env-group-title">${groupName}</div>`;
+
+                for (const key of keys) {
+
+                    const setting = data.settings[key];
+
+                    const value = setting ? setting.value : "";
+
+                    const sensitive = setting ? setting.sensitive : false;
+
+                    const label = labels[key] || key;
+
+                    html += `<div class="env-field">
+                        <label class="env-label" for="env_${key}">${key}</label>
+                        <span class="env-hint">${label}</span>
+                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(value)}" data-key="${key}" autocomplete="off">
+                    </div>`;
+
+                }
+
+                html += `</div>`;
+
+            }
+
+            this.envForm.innerHTML = html;
+
+        } catch (err) {
+
+            console.error("loadEnvSettings error:", err);
+
+            this.envForm.innerHTML = `<div class="env-error">Ошибка загрузки настроек: ${err.message}</div>`;
+
+        }
+
+    }
+
+    escapeHtml(str) {
+
+        return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    }
+
+    async saveEnvSettings() {
+
+        const inputs = this.envForm.querySelectorAll(".env-input");
+
+        const settings = {};
+
+        inputs.forEach(input => {
+
+            settings[input.dataset.key] = input.value;
+
+        });
+
+        try {
+
+            const res = await fetch("/api/settings", {
+
+                method: "POST",
+
+                headers: { "Content-Type": "application/json" },
+
+                body: JSON.stringify({ settings }),
+
+            });
+
+            const data = await res.json();
+
+            this.showToast(data.message || (data.ok ? "Настройки сохранены" : "Ошибка сохранения"));
+
+        } catch (err) {
+
+            this.showToast("Ошибка сохранения настроек");
+
+        }
 
     }
 

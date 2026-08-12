@@ -3535,5 +3535,130 @@ body.search-open .results{
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
+}
 
+/* ==========================================================
+   ENV SETTINGS PANEL
+========================================================== */
+
+.settings-form{
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+    padding:8px 0;
+}
+
+/* .env-group and .env-group-title — see bottom of file */
+
+.env-field{
+    display:flex;
+    flex-direction:column;
+    gap:3px;
+}
+
+.env-label{
+    font-family:monospace;
+    font-size:13px;
+    font-weight:600;
+    color:var(--accent, #4fc3f7);
+}
+
+.env-hint{
+    font-size:11px;
+    color:var(--text-secondary, rgba(255,255,255,.4));
+    margin-bottom:2px;
+}
+
+.env-input{
+    width:100%;
+    padding:8px 12px;
+    background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.1);
+    border-radius:6px;
+    color:var(--text, #e0e0e0);
+    font-family:monospace;
+    font-size:13px;
+    outline:none;
+    transition:border-color .2s, background .2s;
+}
+
+.env-input:focus{
+    border-color:var(--accent, #4fc3f7);
+    background:rgba(255,255,255,.08);
+}
+
+.env-error{
+    color:#ef5350;
+    font-size:13px;
+    padding:16px;
+    text-align:center;
+}
+
+.settings-footer{
+    display:flex;
+    justify-content:flex-end;
+    padding:12px 0;
+    border-top:1px solid rgba(255,255,255,.06);
+    margin-top:16px;
+}
+
+.settings-save-btn{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    padding:8px 20px;
+    background:var(--accent, #4fc3f7);
+    color:#0b0e14;
+    border:none;
+    border-radius:8px;
+    font-size:13px;
+    font-weight:600;
+    cursor:pointer;
+    transition:opacity .2s, transform .15s;
+}
+
+.settings-save-btn:active{
+    transform:scale(.96);
+}
+
+.settings-save-btn svg{
+    width:14px;
+    height:14px;
+}
+
+/* ---------- ENV PANEL: slide from LEFT ---------- */
+
+#envPanel{
+    transform:translateX(-100%);
+}
+
+#envOverlay.open #envPanel{
+    transform:translateX(0);
+}
+
+/* ---------- ENV SETTINGS PANEL ---------- */
+
+.env-group{
+    background:rgba(255,255,255,.03);
+    border:1px solid rgba(255,255,255,.06);
+    border-radius:10px;
+    padding:12px 14px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
+
+.env-group + .env-group{
+    margin-top:16px;
+}
+
+.env-group-title{
+    font-size:11px;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--accent, #4fc3f7);
+    padding-bottom:8px;
+    margin-bottom:8px;
+    border-bottom:1px solid rgba(255,255,255,.08);
 }

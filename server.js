@@ -975,6 +975,144 @@ app.post("/api/history", async (req, res) => {
 
 
 // =============================
+// SETTINGS (.env management)
+// =============================
+
+// Read .env file and return parsed key-value pairs (mask API keys)
+app.get("/api/settings", (req, res) => {
+
+    try {
+
+        const envPath = path.join(__dirname, ".env");
+
+        const content = fs.readFileSync(envPath, "utf-8");
+
+        const settings = {};
+
+        const sensitiveKeys = ["API_KEY", "KEY"];
+
+        content.split("\n").forEach(line => {
+
+            const trimmed = line.trim();
+
+            if (!trimmed || trimmed.startsWith("#")) return;
+
+            const eqIdx = trimmed.indexOf("=");
+
+            if (eqIdx === -1) return;
+
+            const key = trimmed.substring(0, eqIdx).trim();
+
+            const value = trimmed.substring(eqIdx + 1).trim();
+
+            settings[key] = { value, sensitive: sensitiveKeys.some(s => key.toUpperCase().includes(s)) };
+
+        });
+
+        res.json({ ok: true, settings });
+
+    } catch (err) {
+
+        console.error("GET /api/settings error:", err);
+
+        res.status(500).json({ ok: false, message: "Ошибка чтения .env" });
+
+    }
+
+});
+
+
+// Write updated .env file (preserves comments and structure)
+app.post("/api/settings", (req, res) => {
+
+    try {
+
+        const newValues = req.body.settings;
+
+        if (!newValues || typeof newValues !== "object") {
+
+            return res.status(400).json({ ok: false, message: "Неверный формат данных" });
+
+        }
+
+        const envPath = path.join(__dirname, ".env");
+
+        let content = "";
+
+        try {
+
+            content = fs.readFileSync(envPath, "utf-8");
+
+        } catch (_) {
+
+            content = "";
+
+        }
+
+        const lines = content.split("\n");
+
+        const updated = new Set();
+
+        const result = lines.map(line => {
+
+            const trimmed = line.trim();
+
+            if (!trimmed || trimmed.startsWith("#")) return line;
+
+            const eqIdx = trimmed.indexOf("=");
+
+            if (eqIdx === -1) return line;
+
+            const key = trimmed.substring(0, eqIdx).trim();
+
+            if (key in newValues) {
+
+                updated.add(key);
+
+                return `${key}=${newValues[key]}`;
+
+            }
+
+            return line;
+
+        });
+
+        // Append new keys not yet in file
+
+        for (const [key, value] of Object.entries(newValues)) {
+
+            if (!updated.has(key)) {
+
+                result.push(`${key}=${value}`);
+
+            }
+
+        }
+
+        fs.writeFileSync(envPath, result.join("\n") + "\n", "utf-8");
+
+        // Update process.env in-memory for immediate effect on some vars
+
+        for (const [key, value] of Object.entries(newValues)) {
+
+            process.env[key] = value;
+
+        }
+
+        res.json({ ok: true, message: "Настройки сохранены в .env. Некоторые изменения требуют перезапуска сервера." });
+
+    } catch (err) {
+
+        console.error("POST /api/settings error:", err);
+
+        res.status(500).json({ ok: false, message: "Ошибка сохранения .env" });
+
+    }
+
+});
+
+
+// =============================
 // TORRENTMONITOR (proxy)
 // =============================
 
