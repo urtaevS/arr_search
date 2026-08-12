@@ -1,5 +1,7 @@
 # Torrent Search
 
+[![Docker Hub](https://img.shields.io/docker/v/urtaev/arr_search?label=Docker%20Hub&logo=docker&color=0db7ed)](https://hub.docker.com/repository/docker/urtaev/arr_search)
+
 Поиск торрентов по множеству трекеров через **Jackett** и **Prowlarr**.
 
 ## ✨ Возможности
