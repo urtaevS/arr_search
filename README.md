@@ -3,7 +3,14 @@
 -------
 
 
-[![Docker Hub](https://img.shields.io/docker/v/urtaev/arr_search?label=Docker%20Hub&logo=docker&color=0db7ed)](https://hub.docker.com/repository/docker/urtaev/arr_search)
+[![Docker Hub](https://img.shields.io/docker/v/urtaev/arr_search?label=Docker%20Hub&logo=docker&color=0db7ed&style=for-the-badge)](https://hub.docker.com/repository/docker/urtaev/arr_search)
+[![Docker Pulls](https://img.shields.io/docker/pulls/urtaev/arr_search?logo=docker&color=0db7ed&style=for-the-badge)](https://hub.docker.com/repository/docker/urtaev/arr_search)
+[![Docker Image Size](https://img.shields.io/docker/image-size/urtaev/arr_search/latest?logo=docker&color=0db7ed&style=for-the-badge)](https://hub.docker.com/repository/docker/urtaev/arr_search)
+[![Docker Build](https://github.com/urtaevS/arr_search/actions/workflows/docker-image.yml/badge.svg?style=for-the-badge)](https://github.com/urtaevS/arr_search/actions/workflows/docker-image.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/urtaevS/arr_search?logo=github&color=2ea44f&style=for-the-badge)](https://github.com/urtaevS/arr_search/releases)
+[![Node.js](https://img.shields.io/badge/Node.js-20.x-339933?logo=node.js&logoColor=white&style=for-the-badge)](https://nodejs.org/)
+[![Express](https://img.shields.io/badge/Express-4.x-000000?logo=express&logoColor=white&style=for-the-badge)](https://expressjs.com/)
+[![PWA](https://img.shields.io/badge/PWA-ready-5A0FC8?logo=pwa&logoColor=white&style=for-the-badge)](https://web.dev/progressive-web-apps/)
 
 Поиск торрентов через **Jackett** и **Prowlarr**.
 
