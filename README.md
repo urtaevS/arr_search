@@ -1,4 +1,5 @@
-<img width="1257" height="267" alt="grok_image_1786541338758 (1)" src="https://github.com/user-attachments/assets/fc15d7ed-f9f0-4d99-8fec-29e37df76bcf" />
+<img width="1257" height="267" alt="head" src="https://github.com/user-attachments/assets/00622cfa-c48b-4936-bb8d-ad4817ee38ea" />
+
 
 -------
 
