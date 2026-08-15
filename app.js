@@ -2632,7 +2632,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
                 "Jackett": ["JACKETT_ENABLED", "JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
 
-                "TorrentMonitor": ["TM_URL", "TM_API_KEY"],
+                "TorrentMonitor": ["TM_ENABLED", "TM_URL", "TM_API_KEY"],
 
                 "Система": ["PORT"],
 
@@ -2654,6 +2654,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
                 "JACKETT_INDEXERS": "Индекстаторы (через запятую)",
 
+                "TM_ENABLED": "Включить TorrentMonitor",
+
                 "TM_URL": "URL сервера",
 
                 "TM_API_KEY": "API-ключ",
@@ -2674,10 +2676,11 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 }
                 // Determine if this is a toggle key and its current state
                 const isToggleKey = groupName === "Prowlarr" && keys.includes("PROWLARR_ENABLED") ||
-                                   groupName === "Jackett" && keys.includes("JACKETT_ENABLED");
+                                   groupName === "Jackett" && keys.includes("JACKETT_ENABLED") ||
+                                   groupName === "TorrentMonitor" && keys.includes("TM_ENABLED");
                 let toggleHtml = "";
                 if (isToggleKey) {
-                    const toggleKey = groupName === "Prowlarr" ? "PROWLARR_ENABLED" : "JACKETT_ENABLED";
+                    const toggleKey = groupName === "Prowlarr" ? "PROWLARR_ENABLED" : groupName === "Jackett" ? "JACKETT_ENABLED" : "TM_ENABLED";
                     const setting = data.settings[toggleKey];
                     const value = setting ? setting.value : "";
                     const checked = value === "true" || value === "1" ? "checked" : "";
@@ -2693,7 +2696,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 for (const key of keys) {
 
                     // Skip toggle keys - they're now in the group title
-                    if (key === "PROWLARR_ENABLED" || key === "JACKETT_ENABLED") continue;
+                    if (key === "PROWLARR_ENABLED" || key === "JACKETT_ENABLED" || key === "TM_ENABLED") continue;
 
                     const setting = data.settings[key];
 
