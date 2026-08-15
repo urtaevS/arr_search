@@ -1659,11 +1659,13 @@ body.search-open .results{
 
     border-radius:16px;
 
-    padding:16px;
+    padding:16px 24px;
 
     width:fit-content;
 
-    max-width:90vw;
+    min-width:300px;
+
+    max-width:95vw;
 
     box-shadow:
         0 8px 32px rgba(0,0,0,.40),
@@ -1728,11 +1730,13 @@ body.search-open .results{
 
     border-radius:16px;
 
-    padding:14px 16px;
+    padding:14px 24px;
 
     width:fit-content;
 
-    max-width:90vw;
+    min-width:300px;
+
+    max-width:95vw;
 
     box-shadow:
         0 8px 32px rgba(0,0,0,.45),
@@ -3587,6 +3591,13 @@ body.search-open .results{
     background:rgba(255,255,255,.08);
 }
 
+.env-input:disabled{
+    opacity:0.5;
+    background:rgba(255,255,255,.02);
+    border-color:rgba(255,255,255,.1);
+    cursor:not-allowed;
+}
+
 .env-error{
     color:#ef5350;
     font-size:13px;
@@ -3661,4 +3672,142 @@ body.search-open .results{
     padding-bottom:8px;
     margin-bottom:8px;
     border-bottom:1px solid rgba(255,255,255,.08);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.env-group-icon {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+/* Toggle in section title */
+.env-toggle-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.env-toggle-title input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-slider-title {
+    position: relative;
+    width: 24px;
+    height: 18px;
+    background-color: rgba(255,255,255,.1);
+    border-radius: 9px;
+    border: 1px solid rgba(255,255,255,.15);
+    cursor: pointer;
+}
+
+.toggle-slider-title:before {
+    content: "";
+    position: absolute;
+    width: 14px;
+    height: 12px;
+    background-color: var(--text-secondary);
+    border-radius: 50%;
+    left: 2px;
+    bottom: 2px;
+    transition: transform .3s, background-color .3s;
+}
+
+.env-toggle-title input:checked + .toggle-slider-title {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.env-toggle-title input:checked + .toggle-slider-title:before {
+    transform: translateX(18px);
+    background-color: white;
+}
+
+/* ---------- TOGGLE SWITCH ---------- */
+
+.env-field-toggle {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.env-field-toggle .env-label {
+    flex: 1;
+    min-width: 0;
+}
+
+.env-field-toggle .env-hint {
+    flex: 1;
+    min-width: 0;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    width: 48px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+.toggle-switch input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+    position: absolute;
+}
+
+.toggle-slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255,255,255,.1);
+    transition: .3s;
+    border-radius: 28px;
+    border: 1px solid rgba(255,255,255,.15);
+}
+
+.toggle-slider:before {
+    position: absolute;
+    content: "";
+    height: 20px;
+    width: 20px;
+    left: 3px;
+    bottom: 3px;
+    background-color: var(--text-secondary);
+    transition: .3s;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,.3);
+}
+
+.toggle-switch input:checked + .toggle-slider {
+    background-color: var(--primary);
+    border-color: var(--primary);
+}
+
+.toggle-switch input:checked + .toggle-slider:before {
+    transform: translateX(22px);
+    background-color: white;
+}
+
+.toggle-switch input:focus-visible + .toggle-slider {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+    opacity: 0.5;
+    background: rgba(255,255,255,.02);
+    border-color: rgba(255,255,255,.1);
+    cursor: not-allowed;
 }

@@ -44,6 +44,8 @@ class TorrentApp {
 
         this.isSearching = false;
         this.activeBackend = "prowlarr";
+        this.prowlarrEnabled = true;
+        this.jackettEnabled = true;
         this.trackerDropdownOpen = false;
         this.dropdownMode = "tracker";
         this.selectedTrackers = new Set();
@@ -75,6 +77,8 @@ class TorrentApp {
 
         // Кнопка категорий видна только при фокусе на поле поиска
         this.hideCategoryBtn();
+
+        this.loadBackendEnabledSettings();
 
         this.loadIndexers();
 
@@ -1458,7 +1462,25 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     toggleBackend() {
 
-        this.activeBackend = this.activeBackend === "jackett" ? "prowlarr" : "jackett";
+        // Determine which backends are enabled
+
+        const enabledBackends = [];
+
+        if (this.prowlarrEnabled) enabledBackends.push("prowlarr");
+
+        if (this.jackettEnabled) enabledBackends.push("jackett");
+
+        // If only one or none enabled, don't toggle
+
+        if (enabledBackends.length <= 1) return;
+
+        // Find current backend index and switch to next enabled backend
+
+        const currentIndex = enabledBackends.indexOf(this.activeBackend);
+
+        const nextIndex = (currentIndex + 1) % enabledBackends.length;
+
+        this.activeBackend = enabledBackends[nextIndex];
 
         const name = this.activeBackend === "jackett" ? "Jackett" : "Prowlarr";
 
@@ -1670,10 +1692,19 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
             t => this.selectedTrackers.has(t.id)
         );
 
+        // Determine which backends are enabled
+        const enabledBackends = [];
+        if (this.prowlarrEnabled) enabledBackends.push("prowlarr");
+        if (this.jackettEnabled) enabledBackends.push("jackett");
+
+        // Determine which backends are configured (have URL and API key)
+        const configuredBackends = [];
+        if (this.prowlarrConfigured) configuredBackends.push("prowlarr");
+        if (this.jackettConfigured) configuredBackends.push("jackett");
+
         let html = "";
 
-        // Select All / Deselect All + Backend Toggle
-
+        // Select All / Deselect All + Backend Toggle (show if multiple backends are configured)
         const backendName = this.activeBackend === "jackett" ? "Jackett" : "Prowlarr";
 
         html += `<div class="tracker-dropdown-select">
@@ -1684,19 +1715,18 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
                 <span>${allSelected ? "Снять всё" : "Выделить всё"}</span>
 
-            </button>
+            </button>`;
 
-            <div class="backend-actions">
-
+        // Show backend toggle if multiple backends are configured (regardless of enabled state)
+        if (configuredBackends.length > 1) {
+            html += `<div class="backend-actions">
                 <button class="backend-toggle" id="backendToggle" title="${backendName}">
-
                     <img src="icons/${this.activeBackend}.png" alt="${backendName}" id="backendIcon">
-
                 </button>
+            </div>`;
+        }
 
-            </div>
-
-        </div>`;
+        html += `</div>`;
 
         // Divider
 
@@ -2566,6 +2596,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.loadEnvSettings();
 
+        this.loadBackendEnabledSettings();
+
         this.envOverlay.classList.add("open");
 
         this.dockEnv?.classList.add("active");
@@ -2596,21 +2628,25 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             const groups = {
 
-                "Prowlarr": ["PROWLARR_URL", "PROWLARR_API_KEY"],
+                "Prowlarr": ["PROWLARR_ENABLED", "PROWLARR_URL", "PROWLARR_API_KEY"],
 
-                "Jackett": ["JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
+                "Jackett": ["JACKETT_ENABLED", "JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
 
                 "TorrentMonitor": ["TM_URL", "TM_API_KEY"],
 
-                "Система": ["PORT", "TORRENT_WATCH_DIR"],
+                "Система": ["PORT"],
 
             };
 
             const labels = {
 
+                "PROWLARR_ENABLED": "Включить Prowlarr",
+
                 "PROWLARR_URL": "URL сервера",
 
                 "PROWLARR_API_KEY": "API-ключ",
+
+                "JACKETT_ENABLED": "Включить Jackett",
 
                 "JACKETT_URL": "URL сервера",
 
@@ -2624,17 +2660,40 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
                 "PORT": "Порт сервера",
 
-                "TORRENT_WATCH_DIR": "Папка для .torrent файлов",
-
             };
 
             let html = "";
 
             for (const [groupName, keys] of Object.entries(groups)) {
 
-                html += `<div class="env-group"><div class="env-group-title">${groupName}</div>`;
+                let iconHtml = "";
+                if (groupName === "Prowlarr") {
+                    iconHtml = `<img src="/icons/prowlarr.png" alt="Prowlarr" class="env-group-icon">`;
+                } else if (groupName === "Jackett") {
+                    iconHtml = `<img src="/icons/jackett.png" alt="Jackett" class="env-group-icon">`;
+                }
+                // Determine if this is a toggle key and its current state
+                const isToggleKey = groupName === "Prowlarr" && keys.includes("PROWLARR_ENABLED") ||
+                                   groupName === "Jackett" && keys.includes("JACKETT_ENABLED");
+                let toggleHtml = "";
+                if (isToggleKey) {
+                    const toggleKey = groupName === "Prowlarr" ? "PROWLARR_ENABLED" : "JACKETT_ENABLED";
+                    const setting = data.settings[toggleKey];
+                    const value = setting ? setting.value : "";
+                    const checked = value === "true" || value === "1" ? "checked" : "";
+                    // Toggle switch using proven mechanism - positioned to right via flex layout
+                    // Label text removed per design requirements
+                    toggleHtml = `<label class="toggle-switch" style="margin-left: auto;">
+                                      <input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}>
+                                      <span class="toggle-slider"></span>
+                                  </label>`;
+                }
+                html += `<div class="env-group"><div class="env-group-title">${iconHtml}${groupName}${toggleHtml}</div>`;
 
                 for (const key of keys) {
+
+                    // Skip toggle keys - they're now in the group title
+                    if (key === "PROWLARR_ENABLED" || key === "JACKETT_ENABLED") continue;
 
                     const setting = data.settings[key];
 
@@ -2682,7 +2741,15 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         inputs.forEach(input => {
 
-            settings[input.dataset.key] = input.value;
+            if (input.type === "checkbox") {
+
+                settings[input.dataset.key] = input.checked ? "true" : "false";
+
+            } else {
+
+                settings[input.dataset.key] = input.value;
+
+            }
 
         });
 
@@ -2702,9 +2769,72 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             this.showToast(data.message || (data.ok ? "Настройки сохранены" : "Ошибка сохранения"));
 
+            // Reload backend enabled settings after saving
+            await this.loadBackendEnabledSettings();
+
+            // Reload indexers with new backend settings
+            await this.loadIndexers();
+
         } catch (err) {
 
             this.showToast("Ошибка сохранения настроек");
+
+        }
+
+    }
+
+    async loadBackendEnabledSettings() {
+
+        try {
+
+            const res = await fetch("/api/settings");
+
+            const data = await res.json();
+
+            if (!data.ok) throw new Error(data.message);
+
+            this.prowlarrEnabled = data.settings.PROWLARR_ENABLED?.value === "true";
+
+            this.jackettEnabled = data.settings.JACKETT_ENABLED?.value === "true";
+
+            // Check if backends are configured (have URL and API key)
+            this.prowlarrConfigured = !!(data.settings.PROWLARR_URL?.value && data.settings.PROWLARR_API_KEY?.value);
+
+            this.jackettConfigured = !!(data.settings.JACKETT_URL?.value && data.settings.JACKETT_API_KEY?.value);
+
+            // Ensure at least one backend is enabled
+
+            if (!this.prowlarrEnabled && !this.jackettEnabled) {
+
+                this.prowlarrEnabled = true;
+
+            }
+
+            // Set initial active backend based on enabled settings
+
+            if (this.activeBackend === "prowlarr" && !this.prowlarrEnabled) {
+
+                this.activeBackend = this.jackettEnabled ? "jackett" : "prowlarr";
+
+            } else if (this.activeBackend === "jackett" && !this.jackettEnabled) {
+
+                this.activeBackend = this.prowlarrEnabled ? "prowlarr" : "jackett";
+
+            }
+
+        } catch (err) {
+
+            console.error("loadBackendEnabledSettings error:", err);
+
+            // Default to enabled if settings can't be loaded
+
+            this.prowlarrEnabled = true;
+
+            this.jackettEnabled = true;
+
+            this.prowlarrConfigured = true;
+
+            this.jackettConfigured = true;
 
         }
 
