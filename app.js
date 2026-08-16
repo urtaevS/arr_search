@@ -3,8 +3,6 @@
 // =====================================================
 
 // Показывать ли кнопку «В TorrentMonitor» на карточках результатов.
-// СЕЙЧАС false — кнопка скрыта до починки API на сервере TorrentMonitor
-// (nginx отдаёт 500 на все /api/* запросы). Когда API заработает — поставьте true.
 let TM_BUTTON_ENABLED = true;
 
 class TorrentApp {
@@ -2787,7 +2785,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     const setting = data.settings[toggleKey];
                     const value = setting ? setting.value : "";
                     const checked = value === "true" || value === "1" ? "checked" : "";
-                    // Toggle switch (slider style)
+                    // Toggle switch with styled SVGs (enabled/disabled states)
                     toggleHtml = `<label class="toggle-switch">
                         <input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}>
                         <span class="toggle-slider"></span>
@@ -2828,13 +2826,11 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 input.addEventListener('change', () => {
                     const toggleKey = input.dataset.key;
                     const isEnabled = input.checked;
-                    
+
                     // Find the parent env-group and disable/enable fields accordingly
                     const parentGroup = input.closest('.env-group');
                     if (!parentGroup) return;
-                    
-                    const groupName = parentGroup.querySelector('.env-group-title')?.textContent.trim();
-                    
+
                     // Disable/enable fields based on toggle state
                     // Get all input elements except the toggle itself
                     const fieldsToDisable = parentGroup.querySelectorAll('.env-input');
@@ -2844,10 +2840,32 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                         // Disable all other inputs in the group (URL, API key, etc.)
                         field.disabled = !isEnabled;
                     });
-                    
-                    // Also enable/disable the toggle itself based on logic
-                    // (it stays clickable, but the fields respond to its state)
+
+                    // Fade field opacity to indicate disabled state
+                    parentGroup.querySelectorAll('.env-field').forEach(field => {
+                        const fieldInput = field.querySelector('.env-input');
+                        if (fieldInput && fieldInput.dataset.key !== toggleKey) {
+                            field.style.opacity = isEnabled ? '1' : '0.5';
+                        }
+                    });
                 });
+
+                // Initialize disabled state on load
+                const parentGroup = input.closest('.env-group');
+                if (parentGroup) {
+                    const isEnabled = input.checked;
+                    const fieldsToDisable = parentGroup.querySelectorAll('.env-input');
+                    fieldsToDisable.forEach(field => {
+                        if (field.dataset.key === input.dataset.key) return;
+                        field.disabled = !isEnabled;
+                    });
+                    parentGroup.querySelectorAll('.env-field').forEach(field => {
+                        const fieldInput = field.querySelector('.env-input');
+                        if (fieldInput && fieldInput.dataset.key !== input.dataset.key) {
+                            field.style.opacity = isEnabled ? '1' : '0.5';
+                        }
+                    });
+                }
             });
 
             // Apply initial disabled state based on API data

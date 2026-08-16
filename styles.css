@@ -3684,71 +3684,9 @@ body.search-open .results{
     flex-shrink: 0;
 }
 
-/* Toggle in section title uses .toggle-switch/.toggle-slider */
+/* Toggle in section title uses .toggle class with SVG icons */
 
-/* Toggle in section title */
-.env-toggle-title {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-}
-
-.env-toggle-title input {
-    opacity: 0;
-    width: 0;
-    height: 0;
-    position: absolute;
-}
-
-.toggle-slider-title {
-    position: relative;
-    width: 24px;
-    height: 18px;
-    background-color: rgba(255,255,255,.1);
-    border-radius: 9px;
-    border: 1px solid rgba(255,255,255,.15);
-    cursor: pointer;
-}
-
-.toggle-slider-title:before {
-    content: "";
-    position: absolute;
-    width: 14px;
-    height: 12px;
-    background-color: var(--text-secondary);
-    border-radius: 50%;
-    left: 2px;
-    bottom: 2px;
-    transition: transform .3s, background-color .3s;
-}
-
-.env-toggle-title input:checked + .toggle-slider-title {
-    background-color: var(--primary);
-    border-color: var(--primary);
-}
-
-.env-toggle-title input:checked + .toggle-slider-title:before {
-    transform: translateX(18px);
-    background-color: white;
-}
-
-/* ---------- TOGGLE SWITCH ---------- */
-
-.env-field-toggle {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.env-field-toggle .env-label {
-    flex: 1;
-    min-width: 0;
-}
-
-.env-field-toggle .env-hint {
-    flex: 1;
-    min-width: 0;
-}
+/* ---------- TOGGLE SWITCH (in env-group-title) ---------- */
 
 .toggle-switch {
     position: relative;
@@ -3757,6 +3695,7 @@ body.search-open .results{
     width: 48px;
     height: 28px;
     flex-shrink: 0;
+    margin-left: auto;
 }
 
 .toggle-switch input {
@@ -3805,6 +3744,21 @@ body.search-open .results{
 .toggle-switch input:focus-visible + .toggle-slider {
     outline: 2px solid var(--primary);
     outline-offset: 2px;
+}
+
+.toggle-switch input:disabled + .toggle-slider {
+    opacity: 0.5;
+    background: rgba(255,255,255,.02);
+    border-color: rgba(255,255,255,.1);
+    cursor: not-allowed;
+}
+
+/* Disabled env fields when toggle is off */
+.env-field input:disabled {
+    opacity: 0.5;
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.1);
+    cursor: not-allowed;
 }
 
 .toggle-switch input:disabled + .toggle-slider {
