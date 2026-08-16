@@ -3684,6 +3684,8 @@ body.search-open .results{
     flex-shrink: 0;
 }
 
+/* Toggle in section title uses .toggle-switch/.toggle-slider */
+
 /* Toggle in section title */
 .env-toggle-title {
     display: inline-flex;

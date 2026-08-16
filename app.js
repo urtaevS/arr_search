@@ -5,7 +5,7 @@
 // Показывать ли кнопку «В TorrentMonitor» на карточках результатов.
 // СЕЙЧАС false — кнопка скрыта до починки API на сервере TorrentMonitor
 // (nginx отдаёт 500 на все /api/* запросы). Когда API заработает — поставьте true.
-const TM_BUTTON_ENABLED = false;
+let TM_BUTTON_ENABLED = true;
 
 class TorrentApp {
 
@@ -655,6 +655,77 @@ class TorrentApp {
         this.envSave.addEventListener("click", () => {
 
             this.saveEnvSettings();
+
+        });
+
+        // Add change event listeners to setting inputs for auto-save
+        const saveDebounceTimeout = new Map();
+        this.envForm.addEventListener("change", (e) => {
+
+            const input = e.target.closest(".env-input");
+            if (!input) return;
+
+            const key = input.dataset.key;
+
+            // Clear any existing debounce for this key
+            if (saveDebounceTimeout.has(key)) {
+
+                clearTimeout(saveDebounceTimeout.get(key));
+
+            }
+
+            // Save after 500ms delay if no other changes occur
+            saveDebounceTimeout.set(key, setTimeout(async () => {
+
+                saveDebounceTimeout.delete(key);
+
+                try {
+
+                    const inputs = this.envForm.querySelectorAll(".env-input");
+
+                    const settings = {};
+
+                    inputs.forEach(input => {
+
+                        if (input.type === "checkbox") {
+
+                            settings[input.dataset.key] = input.checked ? "true" : "false";
+
+                        } else {
+
+                            settings[input.dataset.key] = input.value;
+
+                        }
+
+                    });
+
+                    const res = await fetch("/api/settings", {
+
+                        method: "POST",
+
+                        headers: { "Content-Type": "application/json" },
+
+                        body: JSON.stringify({ settings }),
+
+                    });
+
+                    const data = await res.json();
+
+                    this.showToast(data.message || (data.ok ? "Настройки сохранены" : "Ошибка сохранения"));
+
+                    // Reload backend enabled settings after saving
+                    await this.loadBackendEnabledSettings();
+
+                    // Reload indexers with new backend settings
+                    await this.loadIndexers();
+
+                } catch (err) {
+
+                    this.showToast("Ошибка сохранения настроек");
+
+                }
+
+            }, 500));
 
         });
 
@@ -1718,12 +1789,25 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
             </button>`;
 
         // Show backend toggle if multiple backends are configured (regardless of enabled state)
+        // Always show both backend icons for configured backends — even if disabled.
+        // Disabled backends appear dimmed (opacity 0.5) but are still visible per requirement.
         if (configuredBackends.length > 1) {
-            html += `<div class="backend-actions">
-                <button class="backend-toggle" id="backendToggle" title="${backendName}">
-                    <img src="icons/${this.activeBackend}.png" alt="${backendName}" id="backendIcon">
-                </button>
-            </div>`;
+            html += `<div class="backend-actions">`;
+            if (this.prowlarrConfigured) {
+                const prowlarrActive = this.activeBackend === "prowlarr";
+                const prowlarrEnabled = this.prowlarrEnabled;
+                html += `<button class="backend-toggle ${prowlarrActive ? "active" : ""}" data-backend="prowlarr" title="Prowlarr">
+                    <img src="icons/prowlarr.png" alt="Prowlarr" style="opacity:${prowlarrEnabled ? 1 : 0.5};">
+                </button>`;
+            }
+            if (this.jackettConfigured) {
+                const jackettActive = this.activeBackend === "jackett";
+                const jackettEnabled = this.jackettEnabled;
+                html += `<button class="backend-toggle ${jackettActive ? "active" : ""}" data-backend="jackett" title="Jackett">
+                    <img src="icons/jackett.png" alt="Jackett" style="opacity:${jackettEnabled ? 1 : 0.5};">
+                </button>`;
+            }
+            html += `</div>`;
         }
 
         html += `</div>`;
@@ -1785,19 +1869,36 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         });
 
-        // Backend toggle
-        const backendBtn =
-            this.trackerDropdown.querySelector(".backend-toggle");
-
-        backendBtn?.addEventListener("click", (e) => {
-
-            e.stopPropagation();
-
-            this.toggleBackend();
-
-            // Keep focus on search input so mobile keyboard stays open
-            this.input.focus();
-
+        // Backend toggle — individual buttons for each configured backend
+        this.trackerDropdown.querySelectorAll(".backend-toggle[data-backend]").forEach(btn => {
+            btn.addEventListener("click", (e) => {
+                e.stopPropagation();
+                const targetBackend = btn.dataset.backend;
+                if (targetBackend !== this.activeBackend) {
+                    // Switch to the clicked backend if it's enabled
+                    if (targetBackend === "prowlarr" && this.prowlarrEnabled) {
+                        this.activeBackend = "prowlarr";
+                    } else if (targetBackend === "jackett" && this.jackettEnabled) {
+                        this.activeBackend = "jackett";
+                    }
+                    this.loadIndexers().then(() => {
+                        if (this.trackerDropdownOpen) {
+                            this.populateTrackerDropdown();
+                            this.createIcons();
+                        }
+                    });
+                    // Reset categories when switching backend
+                    this.selectedCategories.clear();
+                    this.dropdownMode = "tracker";
+                    this.closeCategoryFilter();
+                    if (this.activeBackend === "prowlarr") {
+                        this.showCategoryBtn();
+                    } else {
+                        this.hideCategoryBtn();
+                    }
+                    this.updateCategoryFilterIcon();
+                }
+            });
         });
 
         // Individual tracker tags
@@ -2081,7 +2182,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 window.open(item.torrent, "_blank");
 
             }
-пап
         });
 
         // ==========================
@@ -2626,6 +2726,10 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             if (!data.ok) throw new Error(data.message);
 
+            // Обновляем TM_BUTTON_ENABLED на основе TM_ENABLED из настроек
+            const tmEnabledSetting = data.settings.TM_ENABLED?.value;
+            TM_BUTTON_ENABLED = tmEnabledSetting === "true" || tmEnabledSetting === "1";
+
             const groups = {
 
                 "Prowlarr": ["PROWLARR_ENABLED", "PROWLARR_URL", "PROWLARR_API_KEY"],
@@ -2675,21 +2779,19 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     iconHtml = `<img src="/icons/jackett.png" alt="Jackett" class="env-group-icon">`;
                 }
                 // Determine if this is a toggle key and its current state
-                const isToggleKey = groupName === "Prowlarr" && keys.includes("PROWLARR_ENABLED") ||
-                                   groupName === "Jackett" && keys.includes("JACKETT_ENABLED") ||
-                                   groupName === "TorrentMonitor" && keys.includes("TM_ENABLED");
+                const toggleKeys = { "Prowlarr": "PROWLARR_ENABLED", "Jackett": "JACKETT_ENABLED", "TorrentMonitor": "TM_ENABLED" };
+                const isToggleKey = Object.keys(toggleKeys).includes(groupName) && keys.includes(toggleKeys[groupName]);
                 let toggleHtml = "";
                 if (isToggleKey) {
-                    const toggleKey = groupName === "Prowlarr" ? "PROWLARR_ENABLED" : groupName === "Jackett" ? "JACKETT_ENABLED" : "TM_ENABLED";
+                    const toggleKey = toggleKeys[groupName];
                     const setting = data.settings[toggleKey];
                     const value = setting ? setting.value : "";
                     const checked = value === "true" || value === "1" ? "checked" : "";
-                    // Toggle switch using proven mechanism - positioned to right via flex layout
-                    // Label text removed per design requirements
-                    toggleHtml = `<label class="toggle-switch" style="margin-left: auto;">
-                                      <input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}>
-                                      <span class="toggle-slider"></span>
-                                  </label>`;
+                    // Toggle switch (slider style)
+                    toggleHtml = `<label class="toggle-switch">
+                        <input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}>
+                        <span class="toggle-slider"></span>
+                    </label>`;
                 }
                 html += `<div class="env-group"><div class="env-group-title">${iconHtml}${groupName}${toggleHtml}</div>`;
 
@@ -2720,6 +2822,37 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             this.envForm.innerHTML = html;
 
+            // Add event listeners to toggle switches for immediate disabled state
+            const toggleInputs = this.envForm.querySelectorAll('.env-input[type="checkbox"][data-key]');
+            toggleInputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    const toggleKey = input.dataset.key;
+                    const isEnabled = input.checked;
+                    
+                    // Find the parent env-group and disable/enable fields accordingly
+                    const parentGroup = input.closest('.env-group');
+                    if (!parentGroup) return;
+                    
+                    const groupName = parentGroup.querySelector('.env-group-title')?.textContent.trim();
+                    
+                    // Disable/enable fields based on toggle state
+                    // Get all input elements except the toggle itself
+                    const fieldsToDisable = parentGroup.querySelectorAll('.env-input');
+                    fieldsToDisable.forEach(field => {
+                        // Skip the toggle input (it has data-key matching toggleKey)
+                        if (field.dataset.key === toggleKey) return;
+                        // Disable all other inputs in the group (URL, API key, etc.)
+                        field.disabled = !isEnabled;
+                    });
+                    
+                    // Also enable/disable the toggle itself based on logic
+                    // (it stays clickable, but the fields respond to its state)
+                });
+            });
+
+            // Apply initial disabled state based on API data
+            this.applyInitialDisabledState();
+
         } catch (err) {
 
             console.error("loadEnvSettings error:", err);
@@ -2730,9 +2863,39 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     }
 
+    async applyInitialDisabledState() {
+
+        const toggleInputs = this.envForm.querySelectorAll('.env-input[type="checkbox"][data-key]');
+
+        toggleInputs.forEach(input => {
+
+            const toggleKey = input.dataset.key;
+
+            const isEnabled = input.checked;
+
+            const parentGroup = input.closest('.env-group');
+
+            if (!parentGroup) return;
+
+            const fieldsToDisable = parentGroup.querySelectorAll('.env-input');
+
+            fieldsToDisable.forEach(field => {
+
+                if (field.dataset.key === toggleKey) return;
+
+                field.disabled = !isEnabled;
+
+            });
+
+        });
+
+    }
+
     escapeHtml(str) {
 
-        return String(str).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+
+        return String(str).replace(/[&<>"']/g, c => map[c]);
 
     }
 
