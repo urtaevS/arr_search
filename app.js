@@ -1774,7 +1774,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         let html = "";
 
         // Select All / Deselect All + Backend Toggle (show if multiple backends are configured)
-        const backendName = this.activeBackend === "jackett" ? "Jackett" : "Prowlarr";
 
         html += `<div class="tracker-dropdown-select">
 
@@ -1786,25 +1785,23 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             </button>`;
 
-        // Show backend toggle if multiple backends are configured (regardless of enabled state)
-        // Always show both backend icons for configured backends — even if disabled.
-        // Disabled backends appear dimmed (opacity 0.5) but are still visible per requirement.
+        // Single backend toggle: show ONLY the active (enabled) backend's icon.
+        // Disabled backends are never shown. Clicking the icon cycles to the
+        // next enabled backend (handled by toggleBackend()).
         if (configuredBackends.length > 1) {
+            const enabledNow = [];
+            if (this.prowlarrEnabled) enabledNow.push("prowlarr");
+            if (this.jackettEnabled) enabledNow.push("jackett");
+            // Ensure the active backend is an enabled one
+            if (!enabledNow.includes(this.activeBackend) && enabledNow.length) {
+                this.activeBackend = enabledNow[0];
+            }
+            const displayBackend = this.activeBackend;
+            const displayName = displayBackend === "jackett" ? "Jackett" : "Prowlarr";
             html += `<div class="backend-actions">`;
-            if (this.prowlarrConfigured) {
-                const prowlarrActive = this.activeBackend === "prowlarr";
-                const prowlarrEnabled = this.prowlarrEnabled;
-                html += `<button class="backend-toggle ${prowlarrActive ? "active" : ""}" data-backend="prowlarr" title="Prowlarr">
-                    <img src="icons/prowlarr.png" alt="Prowlarr" style="opacity:${prowlarrEnabled ? 1 : 0.5};">
-                </button>`;
-            }
-            if (this.jackettConfigured) {
-                const jackettActive = this.activeBackend === "jackett";
-                const jackettEnabled = this.jackettEnabled;
-                html += `<button class="backend-toggle ${jackettActive ? "active" : ""}" data-backend="jackett" title="Jackett">
-                    <img src="icons/jackett.png" alt="Jackett" style="opacity:${jackettEnabled ? 1 : 0.5};">
-                </button>`;
-            }
+            html += `<button class="backend-toggle active" data-backend="${displayBackend}" title="${displayName}">
+                <img src="icons/${displayBackend}.png" alt="${displayName}">
+            </button>`;
             html += `</div>`;
         }
 
@@ -1868,34 +1865,14 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         });
 
         // Backend toggle — individual buttons for each configured backend
+        // Backend toggle - single icon that cycles to the next enabled backend
         this.trackerDropdown.querySelectorAll(".backend-toggle[data-backend]").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                const targetBackend = btn.dataset.backend;
-                if (targetBackend !== this.activeBackend) {
-                    // Switch to the clicked backend if it's enabled
-                    if (targetBackend === "prowlarr" && this.prowlarrEnabled) {
-                        this.activeBackend = "prowlarr";
-                    } else if (targetBackend === "jackett" && this.jackettEnabled) {
-                        this.activeBackend = "jackett";
-                    }
-                    this.loadIndexers().then(() => {
-                        if (this.trackerDropdownOpen) {
-                            this.populateTrackerDropdown();
-                            this.createIcons();
-                        }
-                    });
-                    // Reset categories when switching backend
-                    this.selectedCategories.clear();
-                    this.dropdownMode = "tracker";
-                    this.closeCategoryFilter();
-                    if (this.activeBackend === "prowlarr") {
-                        this.showCategoryBtn();
-                    } else {
-                        this.hideCategoryBtn();
-                    }
-                    this.updateCategoryFilterIcon();
-                }
+                // Cycle to the next enabled backend. toggleBackend() reloads
+                // indexers, re-renders the dropdown with the new icon, and
+                // resets categories.
+                this.toggleBackend();
             });
         });
 
