@@ -16,14 +16,46 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 const JACKETT_URL = process.env.JACKETT_URL;
+const JACKETT_URL_2 = process.env.JACKETT_URL_2;
 const API_KEY = process.env.JACKETT_API_KEY;
+const JACKETT_API_KEY_2 = process.env.JACKETT_API_KEY_2;
+const JACKETT_NAME = process.env.JACKETT_NAME;
+const JACKETT_NAME_2 = process.env.JACKETT_NAME_2;
 
 const PROWLARR_URL = process.env.PROWLARR_URL;
+const PROWLARR_URL_2 = process.env.PROWLARR_URL_2;
 const PROWLARR_API_KEY = process.env.PROWLARR_API_KEY;
+const PROWLARR_API_KEY_2 = process.env.PROWLARR_API_KEY_2;
+const PROWLARR_NAME = process.env.PROWLARR_NAME;
+const PROWLARR_NAME_2 = process.env.PROWLARR_NAME_2;
+const PROWLARR_ENABLED_2 = process.env.PROWLARR_ENABLED_2;
+const JACKETT_ENABLED_2 = process.env.JACKETT_ENABLED_2;
+const JACKETT_INDEXERS_2 = process.env.JACKETT_INDEXERS_2;
 
 // TorrentMonitor (отправка раздач в отслеживание)
 const TM_URL = process.env.TM_URL;
 const TM_API_KEY = process.env.TM_API_KEY;
+
+// Resolve backend URL/API key for a given source key.
+// Source keys: "prowlarr", "prowlarr2", "jackett", "jackett2".
+function resolveBackend(backend) {
+    const isEp2 = typeof backend === "string" && backend.endsWith("2");
+    const base = isEp2 ? backend.slice(0, -1) : (backend || "prowlarr");
+    if (base === "prowlarr") {
+        return {
+            base,
+            ep: isEp2 ? 2 : 1,
+            url: isEp2 ? (PROWLARR_URL_2 || PROWLARR_URL) : PROWLARR_URL,
+            key: isEp2 ? (PROWLARR_API_KEY_2 || PROWLARR_API_KEY) : PROWLARR_API_KEY,
+        };
+    }
+    return {
+        base,
+        ep: isEp2 ? 2 : 1,
+        url: isEp2 ? (JACKETT_URL_2 || JACKETT_URL) : JACKETT_URL,
+        key: isEp2 ? (JACKETT_API_KEY_2 || API_KEY) : API_KEY,
+    };
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -259,10 +291,10 @@ function parseIndexerErrors(raw) {
     return out;
 }
 
-async function searchSingleIndexer(query, indexerId, categoryList = []) {
+async function searchSingleIndexer(query, indexerId, categoryList = [], pUrl = PROWLARR_URL, pKey = PROWLARR_API_KEY) {
 
-    const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
-    searchUrl.searchParams.set("apikey", PROWLARR_API_KEY);
+    const searchUrl = new URL(`${pUrl}/api/v1/search`);
+    searchUrl.searchParams.set("apikey", pKey);
     searchUrl.searchParams.set("query", query);
     searchUrl.searchParams.append("indexerIds", indexerId);
 
@@ -379,14 +411,15 @@ app.get("/api/categories", async (req, res) => {
 app.get("/api/indexers", async (req, res) => {
 
     const backend = req.query.backend || "";
+    const rb = resolveBackend(backend);
 
     // 1. Если выбран Prowlarr (или Prowlarr настроен и не выбран Jackett)
-    if (backend !== "jackett" && PROWLARR_URL && PROWLARR_API_KEY) {
+    if (backend !== "jackett" && rb.url && rb.key) {
 
         try {
 
-            const parsed = new URL(`${PROWLARR_URL}/api/v1/indexer`);
-            parsed.searchParams.set("apikey", PROWLARR_API_KEY);
+            const parsed = new URL(`${rb.url}/api/v1/indexer`);
+            parsed.searchParams.set("apikey", rb.key);
 
             const response = await axios.get(parsed.toString(), { timeout: 10000 });
 
@@ -416,14 +449,14 @@ app.get("/api/indexers", async (req, res) => {
     }
 
     // Если был явно выбран Prowlarr — не падаем на Jackett
-    if (backend === "prowlarr") {
+    if (backend === "prowlarr" || backend === "prowlarr2") {
         return res.json([]);
     }
 
     // 2. Fallback на Jackett
     let indexers = [];
 
-    if (process.env.JACKETT_INDEXERS) {
+    if (rb.ep === 2 ? process.env.JACKETT_INDEXERS_2 : process.env.JACKETT_INDEXERS) {
 
         const NAME_MAP = {
             "anidub": "AniDUB",
@@ -442,7 +475,7 @@ app.get("/api/indexers", async (req, res) => {
             "tapochek": "Tapochek"
         };
 
-        indexers = process.env.JACKETT_INDEXERS
+        indexers = (rb.ep === 2 ? process.env.JACKETT_INDEXERS_2 : process.env.JACKETT_INDEXERS)
             .split(",")
             .map(s => s.trim())
             .filter(Boolean)
@@ -462,9 +495,9 @@ app.get("/api/indexers", async (req, res) => {
 
         const data = await fetchWithCookie(
 
-            `${JACKETT_URL}/api/v2.0/indexers`,
+            `${rb.url}/api/v2.0/indexers`,
 
-            API_KEY
+            rb.key
 
         );
 
@@ -570,6 +603,7 @@ app.get("/api/search", async (req, res) => {
     }
 
     const backend = req.query.backend || "";
+    const { base, ep, pUrl, pKey, jUrl, jKey } = resolveBackend(backend);
 
     const trackers = (req.query.trackers || "").trim();
 
@@ -587,14 +621,14 @@ app.get("/api/search", async (req, res) => {
     };
 
     // 1. Если выбран Prowlarr (или Prowlarr настроен и не выбран Jackett)
-    if (backend !== "jackett" && PROWLARR_URL && PROWLARR_API_KEY) {
+    if (backend !== "jackett" && pUrl && pKey) {
 
         // Шаг 1 — Быстрый массовый запрос (fast path)
         let fastResults = null;
         try {
 
-            const searchUrl = new URL(`${PROWLARR_URL}/api/v1/search`);
-            searchUrl.searchParams.set("apikey", PROWLARR_API_KEY);
+            const searchUrl = new URL(`${pUrl}/api/v1/search`);
+            searchUrl.searchParams.set("apikey", pKey);
             searchUrl.searchParams.set("query", query);
 
             if (trackerList.length > 0) {
@@ -677,7 +711,7 @@ app.get("/api/search", async (req, res) => {
                 const categoryList = categories ? categories.split(",").map(s => s.trim()).filter(Boolean) : [];
 
                 const promises = trackerList.map(id =>
-                    searchSingleIndexer(query, id, categoryList)
+                    searchSingleIndexer(query, id, categoryList, pUrl, pKey)
                         .catch(err => {
                             const name = prowlarrIndexerMap.get(String(id)) || id;
                             console.warn("[search] Запрос к трекеру не удался:", name, "-", err?.message || "неизвестная ошибка");
@@ -721,14 +755,14 @@ app.get("/api/search", async (req, res) => {
     }
 
     // Если был явно выбран Prowlarr — не падаем на Jackett
-    if (backend === "prowlarr") {
+    if (base === "prowlarr") {
         return res.json({ results: [], errors: searchErrors });
     }
 
     // 2. Fallback на Jackett
     // Если backend явно jackett — используем выбранные трекеры как есть
     // Если сюда попали после Prowlarr (backend пустой) — очищаем ID, т.к. у Prowlarr они числовые
-    const jackettTrackerList = (backend === "jackett" || !PROWLARR_URL || !PROWLARR_API_KEY)
+    const jackettTrackerList = (backend === "jackett" || !pUrl || !pKey)
         ? trackerList
         : [];
 
@@ -739,8 +773,8 @@ app.get("/api/search", async (req, res) => {
         if (jackettTrackerList.length === 0) {
             // Поиск по всем индексаторам
             const response = await axios.get(
-                `${JACKETT_URL}/api/v2.0/indexers/all/results`,
-                { params: { apikey: API_KEY, Query: query }, timeout: 30000 }
+                `${jUrl}/api/v2.0/indexers/all/results`,
+                { params: { apikey: jKey, Query: query }, timeout: 30000 }
             );
             allResults = response.data.Results || [];
 
@@ -749,8 +783,8 @@ app.get("/api/search", async (req, res) => {
             console.log("[search] Searching SINGLE indexer: %s", jackettTrackerList[0]);
             // Поиск по одному индексатору
             const response = await axios.get(
-                `${JACKETT_URL}/api/v2.0/indexers/${jackettTrackerList[0]}/results`,
-                { params: { apikey: API_KEY, Query: query }, timeout: 30000 }
+                `${jUrl}/api/v2.0/indexers/${jackettTrackerList[0]}/results`,
+                { params: { apikey: jKey, Query: query }, timeout: 30000 }
             );
             allResults = response.data.Results || [];
 
@@ -759,8 +793,8 @@ app.get("/api/search", async (req, res) => {
             // Поиск по нескольким индексаторам — параллельные запросы
             const requests = jackettTrackerList.map(id =>
                 axios.get(
-                    `${JACKETT_URL}/api/v2.0/indexers/${id}/results`,
-                    { params: { apikey: API_KEY, Query: query }, timeout: 30000 }
+                    `${jUrl}/api/v2.0/indexers/${id}/results`,
+                    { params: { apikey: jKey, Query: query }, timeout: 30000 }
                 ).then(r => r.data.Results || []).catch(() => [])
             );
             const nested = await Promise.all(requests);

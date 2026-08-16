@@ -162,11 +162,13 @@ body{
 
     justify-content:center;
 
-    width:32px;
+    gap:6px;
+
+    width:auto;
 
     height:32px;
 
-    padding:0;
+    padding:0 10px;
 
     border:none;
 
@@ -178,7 +180,18 @@ body{
 
     transition:all .2s;
 
-    overflow:hidden;
+
+}
+
+.backend-toggle .backend-name{
+
+    font-size:13px;
+
+    font-weight:500;
+
+    color:var(--text);
+
+    white-space:nowrap;
 
 }
 
@@ -3767,3 +3780,17 @@ body.search-open .results{
     border-color: rgba(255,255,255,.1);
     cursor: not-allowed;
 }
+
+
+/* Per-endpoint settings subsections (Prowlarr 1/2, Jackett 1/2) */
+.env-endpoint{ margin-top:10px; }
+.env-endpoint + .env-endpoint{ border-top:1px solid rgba(255,255,255,.06); padding-top:10px; }
+.env-endpoint-title{ display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom:6px; font-weight:600; }
+.env-hidden{ display:none !important; }
+.env-add-indexer{
+    display:inline-flex; align-items:center; gap:6px;
+    margin-top:10px; padding:6px 12px;
+    border:1px dashed rgba(255,255,255,.28); border-radius:8px;
+    background:transparent; color:var(--text); cursor:pointer; font-size:13px;
+}
+.env-add-indexer:hover{ background:rgba(255,255,255,.06); }
