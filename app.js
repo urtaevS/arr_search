@@ -2813,9 +2813,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     const sensitive = s ? s.sensitive : false;
                     const label = labels[key] || key;
                     html += `<div class="env-field">
-                        <label class="env-label" for="env_${key}">${key}</label>
                         <span class="env-hint">${label}</span>
-                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(v)}" data-key="${key}" autocomplete="off">
+                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(v)}" data-key="${key}" title="${key}" aria-label="${key}" autocomplete="off">
                     </div>`;
                 }
                 html += `</div>`;
@@ -2862,9 +2861,8 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     const sensitive = setting ? setting.sensitive : false;
                     const label = labels[key] || key;
                     html += `<div class="env-field">
-                        <label class="env-label" for="env_${key}">${key}</label>
                         <span class="env-hint">${label}</span>
-                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(value)}" data-key="${key}" autocomplete="off">
+                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(value)}" data-key="${key}" title="${key}" aria-label="${key}" autocomplete="off">
                     </div>`;
                 }
                 html += `</div>`;
