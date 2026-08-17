@@ -2775,11 +2775,13 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     primary: {
                         toggleKey: "PROWLARR_ENABLED",
                         toggleLabel: "Prowlarr 1",
+                        nameKey: "PROWLARR_NAME",
                         fields: ["PROWLARR_NAME", "PROWLARR_URL", "PROWLARR_API_KEY"],
                     },
                     secondary: {
                         toggleKey: "PROWLARR_ENABLED_2",
                         toggleLabel: "Prowlarr 2",
+                        nameKey: "PROWLARR_NAME_2",
                         fields: ["PROWLARR_NAME_2", "PROWLARR_URL_2", "PROWLARR_API_KEY_2"],
                     },
                 },
@@ -2789,11 +2791,13 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     primary: {
                         toggleKey: "JACKETT_ENABLED",
                         toggleLabel: "Jackett 1",
+                        nameKey: "JACKETT_NAME",
                         fields: ["JACKETT_NAME", "JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
                     },
                     secondary: {
                         toggleKey: "JACKETT_ENABLED_2",
                         toggleLabel: "Jackett 2",
+                        nameKey: "JACKETT_NAME_2",
                         fields: ["JACKETT_NAME_2", "JACKETT_URL_2", "JACKETT_API_KEY_2", "JACKETT_INDEXERS_2"],
                     },
                 },
@@ -2803,8 +2807,9 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 const setting = data.settings[def.toggleKey];
                 const value = setting ? setting.value : "";
                 const checked = value === "true" || value === "1" ? "checked" : "";
+                const epName = (data.settings[def.nameKey]?.value || "").trim() || def.toggleLabel;
                 let html = `<div class="env-endpoint" data-toggle-key="${def.toggleKey}">`;
-                html += `<div class="env-endpoint-title"><span>${def.toggleLabel}</span>`;
+                html += `<div class="env-endpoint-title"><span>${epName}</span>`;
                 html += `<label class="toggle-switch"><input class="env-input" type="checkbox" data-key="${def.toggleKey}" ${checked}><span class="toggle-slider"></span></label>`;
                 html += `</div>`;
                 for (const key of def.fields) {
@@ -2839,12 +2844,14 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
             }
 
             const flatGroups = {
-                "TorrentMonitor": ["TM_ENABLED", "TM_URL", "TM_API_KEY"],
-                "Система": ["PORT"],
+                "TorrentMonitor": { icon: "/icons/torrentmonitor.svg", keys: ["TM_ENABLED", "TM_URL", "TM_API_KEY"] },
+                "Система": { icon: "/icons/system.svg", keys: ["PORT"] },
             };
             const flatToggleKeys = { "TorrentMonitor": "TM_ENABLED" };
 
-            for (const [groupName, keys] of Object.entries(flatGroups)) {
+            for (const [groupName, gdef] of Object.entries(flatGroups)) {
+                const keys = gdef.keys;
+                const iconHtml = gdef.icon ? `<img src="${gdef.icon}" alt="${groupName}" class="env-group-icon">` : "";
                 let toggleHtml = "";
                 const toggleKey = flatToggleKeys[groupName];
                 if (toggleKey) {
@@ -2853,7 +2860,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                     const checked = value === "true" || value === "1" ? "checked" : "";
                     toggleHtml = `<label class="toggle-switch"><input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}><span class="toggle-slider"></span></label>`;
                 }
-                html += `<div class="env-group"><div class="env-group-title">${groupName}${toggleHtml}</div>`;
+                html += `<div class="env-group"><div class="env-group-title">${iconHtml}${groupName}${toggleHtml}</div>`;
                 for (const key of keys) {
                     if (key === "TM_ENABLED") continue;
                     const setting = data.settings[key];
