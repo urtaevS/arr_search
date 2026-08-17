@@ -32,6 +32,15 @@
     --categories-bg: rgba(20,26,36,.98);
     --control-border: rgba(255,255,255,.22);
     --search-bg: rgba(255,255,255,.08);
+    --glass-border: rgba(255,255,255,.10);
+    --float-shadow: 0 12px 40px rgba(0,0,0,.5);
+    --glass-highlight: inset 0 1px 0 rgba(255,255,255,.08);
+    --glass-bg: rgba(30,34,45,.72);
+    --glass-bg-strong: rgba(30,34,45,.85);
+    --glass-inset: rgba(255,255,255,.05);
+    --glass-border-soft: rgba(255,255,255,.08);
+    --glass-shadow: 0 8px 30px rgba(0,0,0,.45);
+    --glass-blur: blur(22px) saturate(180%);
     --fill-subtle: rgba(255,255,255,.05);
 }
 
@@ -51,10 +60,19 @@
     --hairline-strong: rgba(0,0,0,.16);
     --fill-hover: rgba(0,0,0,.05);
     --fill-hover-2: rgba(0,0,0,.08);
-    --panel-bg: rgba(242,242,247,.94);
-    --categories-bg: rgba(255,255,255,.96);
+    --panel-bg: rgba(255,255,255,.7);
+    --categories-bg: rgba(255,255,255,.82);
     --control-border: rgba(0,0,0,.28);
     --search-bg: rgba(0,0,0,.06);
+    --glass-border: rgba(255,255,255,.55);
+    --float-shadow: 0 12px 40px rgba(0,0,0,.16);
+    --glass-highlight: inset 0 1px 0 rgba(255,255,255,.6);
+    --glass-bg: rgba(255,255,255,.62);
+    --glass-bg-strong: rgba(255,255,255,.82);
+    --glass-inset: rgba(255,255,255,.45);
+    --glass-border-soft: rgba(255,255,255,.4);
+    --glass-shadow: 0 8px 30px rgba(31,38,60,.14), 0 2px 8px rgba(31,38,60,.06);
+    --glass-blur: blur(22px) saturate(180%);
     --fill-subtle: rgba(0,0,0,.04);
 }
 
@@ -1284,7 +1302,7 @@ body.search-open .results{
 
     border-radius:16px;
 
-    background:var(--fill-subtle);
+    background:var(--glass-inset);
 
     border:1px solid var(--hairline);
 
@@ -1524,7 +1542,7 @@ body.search-open .results{
 
     border-radius:14px;
 
-    background:var(--fill-subtle);
+    background:var(--glass-inset);
 
     border:1px solid var(--hairline);
 
@@ -1536,7 +1554,7 @@ body.search-open .results{
 
 .history-item:hover{
 
-    background:var(--fill-hover);
+    background:var(--glass-bg);
 
 }
 
@@ -1686,12 +1704,12 @@ body.search-open .results{
 
     transform:translateX(-50%) translateY(-20px);
 
-    background:var(--hairline);
+    background:var(--glass-bg-strong);
 
-    backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
-    border:1px solid var(--fill-hover-2);
+    border:1px solid var(--glass-border);
 
     border-radius:16px;
 
@@ -1759,8 +1777,8 @@ body.search-open .results{
 
     background:rgba(22,16,14,.96);
 
-    backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
     border:1px solid rgba(251,146,60,.5);
 
@@ -1992,12 +2010,12 @@ body.search-open .results{
 
     border-radius:999px;
 
-    background:var(--hairline);
+    background:var(--glass-bg-strong);
 
-    backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
-    border:1px solid var(--fill-hover-2);
+    border:1px solid var(--glass-border);
 
     box-shadow:
         0 8px 32px rgba(0,0,0,.40),
@@ -2316,13 +2334,14 @@ body.search-open .results{
 
     background:var(--panel-bg);
 
-    backdrop-filter:blur(32px);
-    -webkit-backdrop-filter:blur(32px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
+    box-shadow:var(--glass-highlight);
 
     border-radius:0;
 
-    border-left:1px solid var(--hairline);
-    border-right:1px solid var(--hairline);
+    border-left:1px solid var(--glass-border);
+    border-right:1px solid var(--glass-border);
 
     display:flex;
     flex-direction:column;
@@ -2609,12 +2628,12 @@ body.search-open .results{
 
     bottom:calc(100% + 8px);
 
-    background:var(--hairline);
+    background:var(--glass-bg-strong);
 
-    backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
-    border:1px solid var(--fill-hover-2);
+    border:1px solid var(--glass-border);
 
     border-radius:16px;
 
@@ -2850,12 +2869,12 @@ body.search-open .results{
 
     border-radius:50%;
 
-    background:var(--hairline);
+    background:var(--glass-bg-strong);
 
-    backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
-    border:1px solid var(--fill-hover-2);
+    border:1px solid var(--glass-border);
 
     box-shadow:0 8px 32px rgba(0,0,0,.40);
 
@@ -2933,8 +2952,8 @@ body.search-open .results{
 
     background:rgba(23,28,37,.88);
 
-    backdrop-filter:blur(20px);
-    -webkit-backdrop-filter:blur(20px);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
     border-top:1px solid var(--hairline-strong);
 
@@ -3375,12 +3394,14 @@ body.search-open .results{
 .categories-panel{
 
     background:var(--categories-bg);
+    backdrop-filter:var(--glass-blur);
+    -webkit-backdrop-filter:var(--glass-blur);
 
-    border:1px solid var(--fill-hover);
+    border:1px solid var(--glass-border);
 
     border-radius:14px;
 
-    box-shadow:0 12px 40px rgba(0,0,0,.5);
+    box-shadow:var(--glass-shadow), var(--glass-highlight);
 
     z-index:10000;
 
@@ -3785,7 +3806,7 @@ body.search-open .results{
 /* ---------- ENV SETTINGS PANEL ---------- */
 
 .env-group{
-    background:var(--fill-subtle);
+    background:var(--glass-inset);
     border:1px solid var(--hairline);
     border-radius:10px;
     padding:12px 14px;
