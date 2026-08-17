@@ -2833,7 +2833,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 if (secActive) {
                     html += renderEndpoint(sec);
                 } else {
-                    html += `<button type="button" class="env-add-indexer" data-group="${groupName}">+ Добавить индексатор</button>`;
+                    html += `<button type="button" class="env-add-indexer" data-group="${groupName}"><span class="env-add-icon">+</span><span class="env-add-label">Добавить индексатор</span></button>`;
                     html += `<div id="ep-${groupName}-secondary" class="env-hidden"></div>`;
                 }
                 html += `</div>`;
@@ -2872,45 +2872,58 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             this.envForm.innerHTML = html;
 
-            const toggleInputs = this.envForm.querySelectorAll('.env-input[type="checkbox"][data-key]');
-            toggleInputs.forEach(input => {
-                input.addEventListener('change', () => {
-                    const toggleKey = input.dataset.key;
-                    const isEnabled = input.checked;
-                    const scope = input.closest('.env-endpoint') || input.closest('.env-group');
-                    if (!scope) return;
-                    scope.querySelectorAll('.env-input').forEach(field => {
-                        if (field.dataset.key === toggleKey) return;
-                        field.disabled = !isEnabled;
-                    });
-                    scope.querySelectorAll('.env-field').forEach(field => {
-                        const fieldInput = field.querySelector('.env-input');
-                        if (fieldInput && fieldInput.dataset.key !== toggleKey) {
-                            field.style.opacity = isEnabled ? '1' : '0.5';
-                        }
-                    });
+            const applyToggle = (input) => {
+                const toggleKey = input.dataset.key;
+                const isEnabled = input.checked;
+                const scope = input.closest('.env-endpoint') || input.closest('.env-group');
+                if (!scope) return;
+                scope.querySelectorAll('.env-input').forEach(field => {
+                    if (field.dataset.key === toggleKey) return;
+                    field.disabled = !isEnabled;
                 });
-            });
+                scope.querySelectorAll('.env-field').forEach(field => {
+                    const fieldInput = field.querySelector('.env-input');
+                    if (fieldInput && fieldInput.dataset.key !== toggleKey) {
+                        field.style.opacity = isEnabled ? '1' : '0.5';
+                    }
+                });
+            };
+
+            const bindToggle = (input) => {
+                input.addEventListener('change', () => applyToggle(input));
+            };
+
+            const toggleInputs = this.envForm.querySelectorAll('.env-input[type="checkbox"][data-key]');
+            toggleInputs.forEach(bindToggle);
 
             this.envForm.querySelectorAll('.env-add-indexer').forEach(btn => {
                 btn.addEventListener('click', () => {
-                    const target = document.getElementById(`ep-${btn.dataset.group}-secondary`);
-                    const bdef = backendDefs[btn.dataset.group];
+                    const group = btn.dataset.group;
+                    const target = document.getElementById(`ep-${group}-secondary`);
+                    const bdef = backendDefs[group];
                     if (!target || !bdef) return;
-                    target.innerHTML = renderEndpoint(bdef.secondary);
-                    target.classList.remove('env-hidden');
-                    btn.style.display = 'none';
-                    const t = target.querySelector('.env-input[type="checkbox"][data-key]');
-                    if (t) {
-                        const isEnabled = t.checked;
-                        target.querySelectorAll('.env-input').forEach(f => {
-                            if (f.dataset.key === t.dataset.key) return;
-                            f.disabled = !isEnabled;
-                        });
-                        target.querySelectorAll('.env-field').forEach(f => {
-                            const fi = f.querySelector('.env-input');
-                            if (fi && fi.dataset.key !== t.dataset.key) f.style.opacity = isEnabled ? '1' : '0.5';
-                        });
+                    const isOpen = btn.classList.contains('open');
+                    if (!isOpen) {
+                        target.innerHTML = renderEndpoint(bdef.secondary);
+                        target.classList.remove('env-hidden');
+                        btn.classList.add('open');
+                        const icon = btn.querySelector('.env-add-icon');
+                        const label = btn.querySelector('.env-add-label');
+                        if (icon) icon.textContent = '×';
+                        if (label) label.textContent = 'Отмена';
+                        const t = target.querySelector('.env-input[type="checkbox"][data-key]');
+                        if (t) {
+                            bindToggle(t);
+                            applyToggle(t);
+                        }
+                    } else {
+                        target.innerHTML = '';
+                        target.classList.add('env-hidden');
+                        btn.classList.remove('open');
+                        const icon = btn.querySelector('.env-add-icon');
+                        const label = btn.querySelector('.env-add-label');
+                        if (icon) icon.textContent = '+';
+                        if (label) label.textContent = 'Добавить индексатор';
                     }
                 });
             });
