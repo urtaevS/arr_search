@@ -81,6 +81,8 @@ class TorrentApp {
 
     init() {
 
+        this.initTheme();
+
         this.bindEvents();
 
         // Кнопка категорий видна только при фокусе на поле поиска
@@ -2687,6 +2689,44 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         this.dockHistory?.classList.remove("active");
 
         document.body.style.overflow = "";
+
+    }
+
+    // =====================================================
+    // THEME (тёмная / светлая)
+    // =====================================================
+
+    initTheme() {
+
+        const saved = localStorage.getItem("arr_theme") || "dark";
+
+        this.applyTheme(saved);
+
+        const toggle = document.getElementById("themeToggle");
+
+        if (toggle) {
+
+            toggle.checked = (saved === "light");
+
+            toggle.addEventListener("change", () => {
+
+                this.applyTheme(toggle.checked ? "light" : "dark");
+
+            });
+
+        }
+
+    }
+
+    applyTheme(theme) {
+
+        document.documentElement.setAttribute("data-theme", theme);
+
+        localStorage.setItem("arr_theme", theme);
+
+        const meta = document.querySelector('meta[name="theme-color"]');
+
+        if (meta) meta.setAttribute("content", theme === "light" ? "#F3F5F9" : "#1a2332");
 
     }
 
