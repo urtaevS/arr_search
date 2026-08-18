@@ -3,6 +3,8 @@
 // =====================================================
 
 // Показывать ли кнопку «В TorrentMonitor» на карточках результатов.
+// СЕЙЧАС false — кнопка скрыта до починки API на сервере TorrentMonitor
+// (nginx отдаёт 500 на все /api/* запросы). Когда API заработает — поставьте true.
 let TM_BUTTON_ENABLED = true;
 
 class TorrentApp {
@@ -44,16 +46,6 @@ class TorrentApp {
         this.activeBackend = "prowlarr";
         this.prowlarrEnabled = true;
         this.jackettEnabled = true;
-        this.prowlarr2Enabled = false;
-        this.jackett2Enabled = false;
-        this.prowlarrConfigured = true;
-        this.jackettConfigured = true;
-        this.prowlarr2Configured = false;
-        this.jackett2Configured = false;
-        this.prowlarrName = "";
-        this.prowlarr2Name = "";
-        this.jackettName = "";
-        this.jackett2Name = "";
         this.trackerDropdownOpen = false;
         this.dropdownMode = "tracker";
         this.selectedTrackers = new Set();
@@ -144,11 +136,11 @@ class TorrentApp {
 
     async loadCategories() {
 
-        if (this.currentBaseBackend() !== "prowlarr") return;
+        if (this.activeBackend !== "prowlarr") return;
 
         try {
 
-            const res = await fetch(`/api/categories?backend=${encodeURIComponent(this.activeBackend)}`);
+            const res = await fetch(`/api/categories`);
 
             if (!res.ok) throw new Error("HTTP " + res.status);
 
@@ -166,7 +158,7 @@ class TorrentApp {
 
     toggleCategoryFilter() {
 
-        if (this.currentBaseBackend() !== "prowlarr") return;
+        if (this.activeBackend !== "prowlarr") return;
 
         // Если окно уже открыто в режиме категорий — возвращаем окно трекеров
         if (this.dropdownMode === "category" && this.trackerDropdownOpen) {
@@ -189,7 +181,7 @@ class TorrentApp {
 
     renderCategoriesDropdown() {
 
-        if (this.currentBaseBackend() !== "prowlarr") return;
+        if (this.activeBackend !== "prowlarr") return;
 
         this.dropdownMode = "category";
         this.trackerDropdownOpen = true;
@@ -1541,41 +1533,17 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     }
 
-    getAvailableSources() {
-        const sources = [];
-        if (this.prowlarrEnabled && this.prowlarrConfigured) sources.push("prowlarr");
-        if (this.prowlarr2Enabled && this.prowlarr2Configured) sources.push("prowlarr2");
-        if (this.jackettEnabled && this.jackettConfigured) sources.push("jackett");
-        if (this.jackett2Enabled && this.jackett2Configured) sources.push("jackett2");
-        return sources;
-    }
-
-    currentBaseBackend() {
-        return this.activeBackend.replace(/2$/, "");
-    }
-
-    getBackendDisplayName(sourceKey) {
-        const base = sourceKey.replace(/2$/, "");
-        const ep = sourceKey.endsWith("2") ? 2 : 1;
-        let name = "";
-        if (base === "prowlarr") name = ep === 2 ? this.prowlarr2Name : this.prowlarrName;
-        else name = ep === 2 ? this.jackett2Name : this.jackettName;
-        name = (name || "").trim();
-        if (name) return name;
-        return (base === "prowlarr" ? "Prowlarr" : "Jackett") + (ep === 2 ? " 2" : "");
-    }
-
-    getBackendIcon(sourceKey) {
-        return (sourceKey.replace(/2$/, "") === "prowlarr") ? "icons/prowlarr.png" : "icons/jackett.png";
-    }
-
     toggleBackend() {
 
-        // Determine which sources are available (enabled + configured)
+        // Determine which backends are enabled
 
-        const enabledBackends = this.getAvailableSources();
+        const enabledBackends = [];
 
-        // If only one or none available, don't toggle
+        if (this.prowlarrEnabled) enabledBackends.push("prowlarr");
+
+        if (this.jackettEnabled) enabledBackends.push("jackett");
+
+        // If only one or none enabled, don't toggle
 
         if (enabledBackends.length <= 1) return;
 
@@ -1587,7 +1555,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         this.activeBackend = enabledBackends[nextIndex];
 
-        const name = this.getBackendDisplayName(this.activeBackend);
+        const name = this.activeBackend === "jackett" ? "Jackett" : "Prowlarr";
 
         // Обновляем иконку и title в кнопке (если она есть в DOM)
         const btn = document.getElementById("backendToggle");
@@ -1598,7 +1566,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
         if (icon) {
 
-            icon.src = this.getBackendIcon(this.activeBackend);
+            icon.src = `icons/${this.activeBackend}.png`;
 
             icon.alt = name;
 
@@ -1810,6 +1778,7 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         let html = "";
 
         // Select All / Deselect All + Backend Toggle (show if multiple backends are configured)
+        const backendName = this.activeBackend === "jackett" ? "Jackett" : "Prowlarr";
 
         html += `<div class="tracker-dropdown-select">
 
@@ -1821,24 +1790,25 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             </button>`;
 
-        // Single backend toggle: show ONLY the active source's icon.
-        // Clicking the icon cycles through all available sources
-        // (enabled + configured endpoints). Disabled/unconfigured sources
-        // are never shown.
-        const availableSources = this.getAvailableSources();
-        if (availableSources.length > 0) {
-            // Ensure the active source is among available ones
-            if (!availableSources.includes(this.activeBackend)) {
-                this.activeBackend = availableSources[0];
-            }
-            const displayBackend = this.activeBackend;
-            const displayName = this.getBackendDisplayName(displayBackend);
-            const displayIcon = this.getBackendIcon(displayBackend);
+        // Show backend toggle if multiple backends are configured (regardless of enabled state)
+        // Always show both backend icons for configured backends — even if disabled.
+        // Disabled backends appear dimmed (opacity 0.5) but are still visible per requirement.
+        if (configuredBackends.length > 1) {
             html += `<div class="backend-actions">`;
-            html += `<button class="backend-toggle active" data-backend="${displayBackend}" title="${displayName}">
-                <img src="${displayIcon}" alt="${displayName}">
-                <span class="backend-name">${displayName}</span>
-            </button>`;
+            if (this.prowlarrConfigured) {
+                const prowlarrActive = this.activeBackend === "prowlarr";
+                const prowlarrEnabled = this.prowlarrEnabled;
+                html += `<button class="backend-toggle ${prowlarrActive ? "active" : ""}" data-backend="prowlarr" title="Prowlarr">
+                    <img src="icons/prowlarr.png" alt="Prowlarr" style="opacity:${prowlarrEnabled ? 1 : 0.5};">
+                </button>`;
+            }
+            if (this.jackettConfigured) {
+                const jackettActive = this.activeBackend === "jackett";
+                const jackettEnabled = this.jackettEnabled;
+                html += `<button class="backend-toggle ${jackettActive ? "active" : ""}" data-backend="jackett" title="Jackett">
+                    <img src="icons/jackett.png" alt="Jackett" style="opacity:${jackettEnabled ? 1 : 0.5};">
+                </button>`;
+            }
             html += `</div>`;
         }
 
@@ -1902,14 +1872,34 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
         });
 
         // Backend toggle — individual buttons for each configured backend
-        // Backend toggle - single icon that cycles to the next enabled backend
         this.trackerDropdown.querySelectorAll(".backend-toggle[data-backend]").forEach(btn => {
             btn.addEventListener("click", (e) => {
                 e.stopPropagation();
-                // Cycle to the next enabled backend. toggleBackend() reloads
-                // indexers, re-renders the dropdown with the new icon, and
-                // resets categories.
-                this.toggleBackend();
+                const targetBackend = btn.dataset.backend;
+                if (targetBackend !== this.activeBackend) {
+                    // Switch to the clicked backend if it's enabled
+                    if (targetBackend === "prowlarr" && this.prowlarrEnabled) {
+                        this.activeBackend = "prowlarr";
+                    } else if (targetBackend === "jackett" && this.jackettEnabled) {
+                        this.activeBackend = "jackett";
+                    }
+                    this.loadIndexers().then(() => {
+                        if (this.trackerDropdownOpen) {
+                            this.populateTrackerDropdown();
+                            this.createIcons();
+                        }
+                    });
+                    // Reset categories when switching backend
+                    this.selectedCategories.clear();
+                    this.dropdownMode = "tracker";
+                    this.closeCategoryFilter();
+                    if (this.activeBackend === "prowlarr") {
+                        this.showCategoryBtn();
+                    } else {
+                        this.hideCategoryBtn();
+                    }
+                    this.updateCategoryFilterIcon();
+                }
             });
         });
 
@@ -2776,203 +2766,131 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             if (!data.ok) throw new Error(data.message);
 
+            // Обновляем TM_BUTTON_ENABLED на основе TM_ENABLED из настроек
             const tmEnabledSetting = data.settings.TM_ENABLED?.value;
             TM_BUTTON_ENABLED = tmEnabledSetting === "true" || tmEnabledSetting === "1";
 
+            const groups = {
+
+                "Prowlarr": ["PROWLARR_ENABLED", "PROWLARR_URL", "PROWLARR_API_KEY"],
+
+                "Jackett": ["JACKETT_ENABLED", "JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
+
+                "TorrentMonitor": ["TM_ENABLED", "TM_URL", "TM_API_KEY"],
+
+                "Система": ["PORT"],
+
+            };
+
             const labels = {
 
-                "PROWLARR_ENABLED": "Включить Prowlarr 1",
-                "PROWLARR_ENABLED_2": "Включить Prowlarr 2",
-                "PROWLARR_NAME": "Название (в настройках)",
-                "PROWLARR_URL": "URL сервера",
-                "PROWLARR_API_KEY": "API-ключ",
-                "PROWLARR_NAME_2": "Название 2-го",
-                "PROWLARR_URL_2": "URL 2-го сервера",
-                "PROWLARR_API_KEY_2": "API-ключ 2-го",
+                "PROWLARR_ENABLED": "Включить Prowlarr",
 
-                "JACKETT_ENABLED": "Включить Jackett 1",
-                "JACKETT_ENABLED_2": "Включить Jackett 2",
-                "JACKETT_NAME": "Название (в настройках)",
+                "PROWLARR_URL": "URL сервера",
+
+                "PROWLARR_API_KEY": "API-ключ",
+
+                "JACKETT_ENABLED": "Включить Jackett",
+
                 "JACKETT_URL": "URL сервера",
+
                 "JACKETT_API_KEY": "API-ключ",
-                "JACKETT_INDEXERS": "Индексаторы (через запятую)",
-                "JACKETT_NAME_2": "Название 2-го",
-                "JACKETT_URL_2": "URL 2-го сервера",
-                "JACKETT_API_KEY_2": "API-ключ 2-го",
-                "JACKETT_INDEXERS_2": "Индексаторы 2-го (через запятую)",
+
+                "JACKETT_INDEXERS": "Индекстаторы (через запятую)",
 
                 "TM_ENABLED": "Включить TorrentMonitor",
+
                 "TM_URL": "URL сервера",
+
                 "TM_API_KEY": "API-ключ",
+
                 "PORT": "Порт сервера",
 
             };
 
-            const backendDefs = {
-                "Prowlarr": {
-                    icon: "/icons/prowlarr.png",
-                    nameKey: "PROWLARR_NAME",
-                    primary: {
-                        toggleKey: "PROWLARR_ENABLED",
-                        toggleLabel: "Prowlarr 1",
-                        nameKey: "PROWLARR_NAME",
-                        fields: ["PROWLARR_NAME", "PROWLARR_URL", "PROWLARR_API_KEY"],
-                    },
-                    secondary: {
-                        toggleKey: "PROWLARR_ENABLED_2",
-                        toggleLabel: "Prowlarr 2",
-                        nameKey: "PROWLARR_NAME_2",
-                        fields: ["PROWLARR_NAME_2", "PROWLARR_URL_2", "PROWLARR_API_KEY_2"],
-                    },
-                },
-                "Jackett": {
-                    icon: "/icons/jackett.png",
-                    nameKey: "JACKETT_NAME",
-                    primary: {
-                        toggleKey: "JACKETT_ENABLED",
-                        toggleLabel: "Jackett 1",
-                        nameKey: "JACKETT_NAME",
-                        fields: ["JACKETT_NAME", "JACKETT_URL", "JACKETT_API_KEY", "JACKETT_INDEXERS"],
-                    },
-                    secondary: {
-                        toggleKey: "JACKETT_ENABLED_2",
-                        toggleLabel: "Jackett 2",
-                        nameKey: "JACKETT_NAME_2",
-                        fields: ["JACKETT_NAME_2", "JACKETT_URL_2", "JACKETT_API_KEY_2", "JACKETT_INDEXERS_2"],
-                    },
-                },
-            };
-
-            const renderEndpoint = (def) => {
-                const setting = data.settings[def.toggleKey];
-                const value = setting ? setting.value : "";
-                const checked = value === "true" || value === "1" ? "checked" : "";
-                const epName = (data.settings[def.nameKey]?.value || "").trim() || def.toggleLabel;
-                let html = `<div class="env-endpoint" data-toggle-key="${def.toggleKey}">`;
-                html += `<div class="env-endpoint-title"><span>${epName}</span>`;
-                html += `<label class="toggle-switch"><input class="env-input" type="checkbox" data-key="${def.toggleKey}" ${checked}><span class="toggle-slider"></span></label>`;
-                html += `</div>`;
-                for (const key of def.fields) {
-                    const s = data.settings[key];
-                    const v = s ? s.value : "";
-                    const sensitive = s ? s.sensitive : false;
-                    const label = labels[key] || key;
-                    html += `<div class="env-field">
-                        <span class="env-hint">${label}</span>
-                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(v)}" data-key="${key}" title="${key}" aria-label="${key}" autocomplete="off">
-                    </div>`;
-                }
-                html += `</div>`;
-                return html;
-            };
-
             let html = "";
 
-            for (const [groupName, bdef] of Object.entries(backendDefs)) {
-                const displayTitle = (data.settings[bdef.nameKey]?.value || "").trim() || groupName;
-                html += `<div class="env-group"><div class="env-group-title"><img src="${bdef.icon}" alt="${groupName}" class="env-group-icon">${displayTitle}</div>`;
-                html += renderEndpoint(bdef.primary);
-                const sec = bdef.secondary;
-                const secActive = (data.settings[sec.toggleKey]?.value === "true") || sec.fields.some(k => (data.settings[k]?.value || "").trim() !== "");
-                if (secActive) {
-                    html += renderEndpoint(sec);
-                } else {
-                    html += `<button type="button" class="env-add-indexer" data-group="${groupName}"><span class="env-add-icon">+</span><span class="env-add-label">Добавить индексатор</span></button>`;
-                    html += `<div id="ep-${groupName}-secondary" class="env-hidden"></div>`;
+            for (const [groupName, keys] of Object.entries(groups)) {
+
+                let iconHtml = "";
+                if (groupName === "Prowlarr") {
+                    iconHtml = `<img src="/icons/prowlarr.png" alt="Prowlarr" class="env-group-icon">`;
+                } else if (groupName === "Jackett") {
+                    iconHtml = `<img src="/icons/jackett.png" alt="Jackett" class="env-group-icon">`;
                 }
-                html += `</div>`;
-            }
-
-            const flatGroups = {
-                "TorrentMonitor": { icon: "/icons/torrentmonitor.svg", keys: ["TM_ENABLED", "TM_URL", "TM_API_KEY"] },
-                "Система": { icon: "/icons/system.svg", keys: ["PORT"] },
-            };
-            const flatToggleKeys = { "TorrentMonitor": "TM_ENABLED" };
-
-            for (const [groupName, gdef] of Object.entries(flatGroups)) {
-                const keys = gdef.keys;
-                const iconHtml = gdef.icon ? `<img src="${gdef.icon}" alt="${groupName}" class="env-group-icon">` : "";
+                // Determine if this is a toggle key and its current state
+                const toggleKeys = { "Prowlarr": "PROWLARR_ENABLED", "Jackett": "JACKETT_ENABLED", "TorrentMonitor": "TM_ENABLED" };
+                const isToggleKey = Object.keys(toggleKeys).includes(groupName) && keys.includes(toggleKeys[groupName]);
                 let toggleHtml = "";
-                const toggleKey = flatToggleKeys[groupName];
-                if (toggleKey) {
+                if (isToggleKey) {
+                    const toggleKey = toggleKeys[groupName];
                     const setting = data.settings[toggleKey];
                     const value = setting ? setting.value : "";
                     const checked = value === "true" || value === "1" ? "checked" : "";
-                    toggleHtml = `<label class="toggle-switch"><input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}><span class="toggle-slider"></span></label>`;
+                    // Toggle switch (slider style)
+                    toggleHtml = `<label class="toggle-switch">
+                        <input class="env-input" type="checkbox" data-key="${toggleKey}" ${checked}>
+                        <span class="toggle-slider"></span>
+                    </label>`;
                 }
                 html += `<div class="env-group"><div class="env-group-title">${iconHtml}${groupName}${toggleHtml}</div>`;
+
                 for (const key of keys) {
-                    if (key === "TM_ENABLED") continue;
+
+                    // Skip toggle keys - they're now in the group title
+                    if (key === "PROWLARR_ENABLED" || key === "JACKETT_ENABLED" || key === "TM_ENABLED") continue;
+
                     const setting = data.settings[key];
+
                     const value = setting ? setting.value : "";
+
                     const sensitive = setting ? setting.sensitive : false;
+
                     const label = labels[key] || key;
+
                     html += `<div class="env-field">
+                        <label class="env-label" for="env_${key}">${key}</label>
                         <span class="env-hint">${label}</span>
-                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(value)}" data-key="${key}" title="${key}" aria-label="${key}" autocomplete="off">
+                        <input class="env-input" id="env_${key}" type="${sensitive ? "password" : "text"}" value="${this.escapeHtml(value)}" data-key="${key}" autocomplete="off">
                     </div>`;
+
                 }
+
                 html += `</div>`;
+
             }
 
             this.envForm.innerHTML = html;
 
-            const applyToggle = (input) => {
-                const toggleKey = input.dataset.key;
-                const isEnabled = input.checked;
-                const scope = input.closest('.env-endpoint') || input.closest('.env-group');
-                if (!scope) return;
-                scope.querySelectorAll('.env-input').forEach(field => {
-                    if (field.dataset.key === toggleKey) return;
-                    field.disabled = !isEnabled;
-                });
-                scope.querySelectorAll('.env-field').forEach(field => {
-                    const fieldInput = field.querySelector('.env-input');
-                    if (fieldInput && fieldInput.dataset.key !== toggleKey) {
-                        field.style.opacity = isEnabled ? '1' : '0.5';
-                    }
-                });
-            };
-
-            const bindToggle = (input) => {
-                input.addEventListener('change', () => applyToggle(input));
-            };
-
+            // Add event listeners to toggle switches for immediate disabled state
             const toggleInputs = this.envForm.querySelectorAll('.env-input[type="checkbox"][data-key]');
-            toggleInputs.forEach(bindToggle);
-
-            this.envForm.querySelectorAll('.env-add-indexer').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const group = btn.dataset.group;
-                    const target = document.getElementById(`ep-${group}-secondary`);
-                    const bdef = backendDefs[group];
-                    if (!target || !bdef) return;
-                    const isOpen = btn.classList.contains('open');
-                    if (!isOpen) {
-                        target.innerHTML = renderEndpoint(bdef.secondary);
-                        target.classList.remove('env-hidden');
-                        btn.classList.add('open');
-                        const icon = btn.querySelector('.env-add-icon');
-                        const label = btn.querySelector('.env-add-label');
-                        if (icon) icon.textContent = '×';
-                        if (label) label.textContent = 'Отмена';
-                        const t = target.querySelector('.env-input[type="checkbox"][data-key]');
-                        if (t) {
-                            bindToggle(t);
-                            applyToggle(t);
-                        }
-                    } else {
-                        target.innerHTML = '';
-                        target.classList.add('env-hidden');
-                        btn.classList.remove('open');
-                        const icon = btn.querySelector('.env-add-icon');
-                        const label = btn.querySelector('.env-add-label');
-                        if (icon) icon.textContent = '+';
-                        if (label) label.textContent = 'Добавить индексатор';
-                    }
+            toggleInputs.forEach(input => {
+                input.addEventListener('change', () => {
+                    const toggleKey = input.dataset.key;
+                    const isEnabled = input.checked;
+                    
+                    // Find the parent env-group and disable/enable fields accordingly
+                    const parentGroup = input.closest('.env-group');
+                    if (!parentGroup) return;
+                    
+                    const groupName = parentGroup.querySelector('.env-group-title')?.textContent.trim();
+                    
+                    // Disable/enable fields based on toggle state
+                    // Get all input elements except the toggle itself
+                    const fieldsToDisable = parentGroup.querySelectorAll('.env-input');
+                    fieldsToDisable.forEach(field => {
+                        // Skip the toggle input (it has data-key matching toggleKey)
+                        if (field.dataset.key === toggleKey) return;
+                        // Disable all other inputs in the group (URL, API key, etc.)
+                        field.disabled = !isEnabled;
+                    });
+                    
+                    // Also enable/disable the toggle itself based on logic
+                    // (it stays clickable, but the fields respond to its state)
                 });
             });
 
+            // Apply initial disabled state based on API data
             this.applyInitialDisabledState();
 
         } catch (err) {
@@ -2985,7 +2903,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
     }
 
-
     async applyInitialDisabledState() {
 
         const toggleInputs = this.envForm.querySelectorAll('.env-input[type="checkbox"][data-key]');
@@ -2996,11 +2913,13 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             const isEnabled = input.checked;
 
-            const scope = input.closest('.env-endpoint') || input.closest('.env-group');
+            const parentGroup = input.closest('.env-group');
 
-            if (!scope) return;
+            if (!parentGroup) return;
 
-            scope.querySelectorAll('.env-input').forEach(field => {
+            const fieldsToDisable = parentGroup.querySelectorAll('.env-input');
+
+            fieldsToDisable.forEach(field => {
 
                 if (field.dataset.key === toggleKey) return;
 
@@ -3008,22 +2927,9 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             });
 
-            scope.querySelectorAll('.env-field').forEach(field => {
-
-                const fieldInput = field.querySelector('.env-input');
-
-                if (fieldInput && fieldInput.dataset.key !== toggleKey) {
-
-                    field.style.opacity = isEnabled ? '1' : '0.5';
-
-                }
-
-            });
-
         });
 
     }
-
 
     escapeHtml(str) {
 
@@ -3097,25 +3003,10 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             this.jackettEnabled = data.settings.JACKETT_ENABLED?.value === "true";
 
-            this.prowlarr2Enabled = data.settings.PROWLARR_ENABLED_2?.value === "true";
-
-            this.jackett2Enabled = data.settings.JACKETT_ENABLED_2?.value === "true";
-
             // Check if backends are configured (have URL and API key)
             this.prowlarrConfigured = !!(data.settings.PROWLARR_URL?.value && data.settings.PROWLARR_API_KEY?.value);
 
             this.jackettConfigured = !!(data.settings.JACKETT_URL?.value && data.settings.JACKETT_API_KEY?.value);
-
-            // 2nd endpoint configured flags
-            this.prowlarr2Configured = !!(data.settings.PROWLARR_URL_2?.value && data.settings.PROWLARR_API_KEY_2?.value);
-
-            this.jackett2Configured = !!(data.settings.JACKETT_URL_2?.value && data.settings.JACKETT_API_KEY_2?.value);
-
-            // Custom display names
-            this.prowlarrName = data.settings.PROWLARR_NAME?.value || "";
-            this.prowlarr2Name = data.settings.PROWLARR_NAME_2?.value || "";
-            this.jackettName = data.settings.JACKETT_NAME?.value || "";
-            this.jackett2Name = data.settings.JACKETT_NAME_2?.value || "";
 
             // Ensure at least one backend is enabled
 
@@ -3125,11 +3016,16 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             }
 
-            // Set initial active backend based on available sources
+            // Set initial active backend based on enabled settings
 
-            const available = this.getAvailableSources();
-            if (!available.includes(this.activeBackend)) {
-                this.activeBackend = available[0] || "prowlarr";
+            if (this.activeBackend === "prowlarr" && !this.prowlarrEnabled) {
+
+                this.activeBackend = this.jackettEnabled ? "jackett" : "prowlarr";
+
+            } else if (this.activeBackend === "jackett" && !this.jackettEnabled) {
+
+                this.activeBackend = this.prowlarrEnabled ? "prowlarr" : "jackett";
+
             }
 
         } catch (err) {
@@ -3643,7 +3539,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Register Service Worker for PWA
     if ("serviceWorker" in navigator) {
 
-        navigator.serviceWorker.register("./sw.js");
+        navigator.serviceWorker.register("/sw.js");
 
     }
 
