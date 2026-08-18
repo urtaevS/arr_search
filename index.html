@@ -492,11 +492,11 @@
 
 </template>
 
-<!-- Lucide Icons -->
-<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<!-- Lucide Icons (vendored locally so the app works without internet / inside Docker) -->
+<script src="vendor/lucide.min.js"></script>
 <script>
 document.addEventListener("DOMContentLoaded", () => {
-    lucide.createIcons();
+    if (window.lucide) lucide.createIcons();
 });
 </script>
 

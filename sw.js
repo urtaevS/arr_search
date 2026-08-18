@@ -1,9 +1,10 @@
-const CACHE = "torrent-search-v53";
+const CACHE = "torrent-search-v54";
 
 const STATIC_ASSETS = [
   "/index.html",
   "/styles.css",
   "/app.js",
+  "/vendor/lucide.min.js",
   "/manifest.json",
   "/icons/icon-192x192.png",
   "/icons/icon-512x512.png",
