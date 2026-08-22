@@ -41,20 +41,20 @@ const TM_API_KEY = process.env.TM_API_KEY;
 function resolveBackend(backend) {
     const isEp2 = typeof backend === "string" && backend.endsWith("2");
     const base = isEp2 ? backend.slice(0, -1) : (backend || "prowlarr");
-    if (base === "prowlarr") {
-        return {
-            base,
-            ep: isEp2 ? 2 : 1,
-            url: isEp2 ? (PROWLARR_URL_2 || PROWLARR_URL) : PROWLARR_URL,
-            key: isEp2 ? (PROWLARR_API_KEY_2 || PROWLARR_API_KEY) : PROWLARR_API_KEY,
-        };
-    }
-    return {
-        base,
-        ep: isEp2 ? 2 : 1,
-        url: isEp2 ? (JACKETT_URL_2 || JACKETT_URL) : JACKETT_URL,
-        key: isEp2 ? (JACKETT_API_KEY_2 || API_KEY) : API_KEY,
-    };
+
+    // Prowlarr credentials (episode 1 or 2)
+    const pUrl = isEp2 ? (PROWLARR_URL_2 || PROWLARR_URL) : PROWLARR_URL;
+    const pKey = isEp2 ? (PROWLARR_API_KEY_2 || PROWLARR_API_KEY) : PROWLARR_API_KEY;
+
+    // Jackett credentials (episode 1 or 2)
+    const jUrl = isEp2 ? (JACKETT_URL_2 || JACKETT_URL) : JACKETT_URL;
+    const jKey = isEp2 ? (JACKETT_API_KEY_2 || API_KEY) : API_KEY;
+
+    // For /api/indexers the selected base's credentials are still returned as url/key
+    const url = base === "prowlarr" ? pUrl : jUrl;
+    const key = base === "prowlarr" ? pKey : jKey;
+
+    return { base, ep: isEp2 ? 2 : 1, url, key, pUrl, pKey, jUrl, jKey };
 }
 
 const __filename = fileURLToPath(import.meta.url);
