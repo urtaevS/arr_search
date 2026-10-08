@@ -2804,7 +2804,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
                 "TM_ENABLED": "Включить TorrentMonitor",
                 "TM_URL": "URL сервера",
                 "TM_API_KEY": "API-ключ",
-                "PORT": "Порт сервера",
 
             };
 
@@ -2885,7 +2884,6 @@ ${this.escapeHtml(message) || "Не удалось получить резуль
 
             const flatGroups = {
                 "TorrentMonitor": { icon: "/icons/torrentmonitor.svg", keys: ["TM_ENABLED", "TM_URL", "TM_API_KEY"] },
-                "Система": { icon: "/icons/system.svg", keys: ["PORT"] },
             };
             const flatToggleKeys = { "TorrentMonitor": "TM_ENABLED" };
 
